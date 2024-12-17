@@ -3,8 +3,7 @@ import credentials
 import asyncio
 from ib_insync import *
 import nest_asyncio
-import time
-import threading
+
 
 nest_asyncio.apply()
 
@@ -28,9 +27,11 @@ class Strategy:
         self.broker = IBTWSAPI(creds=creds)
         self.strikes = None
         self.atm_sl = 0.15
-        self.percent = 0.15
+        self.call_percent = 0.15
+        self.put_percent = 0.15
         self.atm_call_fill = None
         self.atm_call_limit_price = None
+        self.hedge_otm_difference = 10
 
     async def main(self):
         print("\n1. Testing connection...")
@@ -42,23 +43,52 @@ class Strategy:
 
         await self.place_hedge_orders()
         await asyncio.sleep(1)
-        await self.place_atm_call_order(self.atm_sl)
-        await self.place_atm_put_order(self.atm_sl)
 
-        await self.atm_call_trail_sl()
+        await asyncio.gather(
+            self.place_atm_call_order(self.atm_sl),
+            self.place_atm_put_order(self.atm_sl),
+        )
+
+        await asyncio.gather(
+            self.atm_call_trail_sl(),
+            self.atm_put_trail_sl(),
+        )
 
     async def atm_call_trail_sl(self):
-        percent = 0.95
+        temp_percentage = 0.95
         while True:
-            k = await self.broker.get_latest_premium_price(credentials.instrument, credentials.date, self.closest_current_price, "C")
+            k = await self.broker.get_latest_premium_price(credentials.instrument, credentials.date,
+                                                           self.closest_current_price, "C")
             check = k['ask']
-            if check <= percent * self.atm_call_limit_price:
-                if self.percent > 0.01:
-                    self.percent -= 0.01
-                    x = await self.broker.get_open_orders()
-                    await self.broker.modify_option_trail_percent(x[0], self.percent)
-                    percent -= 0.05
-                    print(f"Bought: {self.atm_call_limit_price}\nCurrent percent: {percent}")
+            if check <= temp_percentage * self.atm_call_limit_price:
+                if self.call_percent > 0.01:
+                    self.call_percent -= 0.01
+                    open_orders_list = await self.broker.get_open_orders()
+                    call = next((trade for trade in open_orders_list if trade.contract.right == "C"), None)
+                    await self.broker.modify_option_trail_percent(call, self.call_percent)
+                    temp_percentage -= 0.05
+                    print(f"Bought: {self.atm_call_limit_price}\nCurrent percent: {temp_percentage}")
+                    await asyncio.sleep(120)
+                else:
+                    break
+            else:
+                await asyncio.sleep(120)
+                print("No Change")
+
+    async def atm_put_trail_sl(self):
+        temp_percentage = 0.95
+        while True:
+            k = await self.broker.get_latest_premium_price(credentials.instrument, credentials.date,
+                                                           self.closest_current_price, "P")
+            check = k['ask']
+            if check <= temp_percentage * self.atm_put_limit_price:
+                if self.put_percent > 0.01:
+                    self.put_percent -= 0.01
+                    open_orders_list = await self.broker.get_open_orders()
+                    put = next((trade for trade in open_orders_list if trade.contract.right == "P"), None)
+                    await self.broker.modify_option_trail_percent(put, self.put_percent)
+                    temp_percentage -= 0.05
+                    print(f"Bought: {self.atm_put_limit_price}\nCurrent percent: {temp_percentage}")
                     await asyncio.sleep(120)
                 else:
                     break
@@ -69,14 +99,14 @@ class Strategy:
     async def place_hedge_orders(self):
         current_price = await self.broker.current_price(credentials.instrument)
         closest_strike = min(self.strikes, key=lambda x: abs(x - current_price))
-        self.otm_closest_call = closest_strike + 10
-        self.otm_closest_put = closest_strike - 10
+        self.otm_closest_call = closest_strike + self.hedge_otm_difference
+        self.otm_closest_put = closest_strike - self.hedge_otm_difference
         spx_contract_call = Option(
             symbol=credentials.instrument,
             lastTradeDateOrContractMonth=credentials.date,
             strike=self.otm_closest_call,
             right='C',
-            exchange="SMART"
+            exchange=credentials.exchange
         )
         await self.broker.place_market_order(contract=spx_contract_call, qty=1, side="BUY")
 
@@ -85,7 +115,7 @@ class Strategy:
             lastTradeDateOrContractMonth=credentials.date,
             strike=self.otm_closest_put,
             right='P',
-            exchange="SMART"
+            exchange=credentials.exchange
         )
         await self.broker.place_market_order(contract=spx_contract_call, qty=1, side="BUY")
 
@@ -96,7 +126,7 @@ class Strategy:
                 lastTradeDateOrContractMonth=credentials.date,
                 strike=self.otm_closest_call,
                 right='C',
-                exchange="SMART"
+                exchange=credentials.exchange
             )
             await self.broker.place_market_order(contract=spx_contract_call, qty=1, side="SELL")
         if close_put:
@@ -105,21 +135,21 @@ class Strategy:
                 lastTradeDateOrContractMonth=credentials.date,
                 strike=self.otm_closest_call,
                 right='P',
-                exchange="SMART"
+                exchange=credentials.exchange
             )
             await self.broker.place_market_order(contract=spx_contract_put, qty=1, side="SELL")
 
     async def place_atm_call_order(self, sl):
         current_price = await self.broker.current_price(credentials.instrument, "CBOE")
         self.closest_current_price = min(self.strikes, key=lambda x: abs(x - current_price))
-        premium_price = await self.broker.get_latest_premium_price(credentials.instrument, credentials.date, self.closest_current_price,
-                                                                   "C")
+        premium_price = await self.broker.get_latest_premium_price(credentials.instrument, credentials.date,
+                                                                   self.closest_current_price,"C")
         spx_contract = Option(
             symbol=credentials.instrument,
             lastTradeDateOrContractMonth=credentials.date,
             strike=self.closest_current_price,
             right='C',
-            exchange="SMART"
+            exchange=credentials.exchange
         )
 
         qualified_contracts = self.broker.client.qualifyContracts(spx_contract)
@@ -127,7 +157,7 @@ class Strategy:
             raise ValueError("Failed to qualify contract with IBKR.")
         print('last price is', premium_price['last'])
 
-        stop_loss = premium_price['last'] * (1 - 0.15)
+        stop_loss = premium_price['last'] * (1 - self.call_percent)
 
         k = await self.broker.place_bracket_order(symbol=credentials.instrument,
                                                   quantity=1,
@@ -154,14 +184,14 @@ class Strategy:
             lastTradeDateOrContractMonth=credentials.date,
             strike=self.closest_current_price,
             right='P',
-            exchange="SMART"
+            exchange=credentials.exchange
         )
 
         qualified_contracts = self.broker.client.qualifyContracts(spx_contract)
         if not qualified_contracts:
             raise ValueError("Failed to qualify contract with IBKR.")
         print('last price is', premium_price['last'])
-        stop_loss = premium_price['last'] * (1 - 0.15)
+        stop_loss = premium_price['last'] * (1 - self.put_percent)
         k = await self.broker.place_bracket_order(symbol=credentials.instrument,
                                                   quantity=1,
                                                   price=premium_price['ask'],
@@ -170,6 +200,7 @@ class Strategy:
                                                   strike=self.closest_current_price,
                                                   right="P",
                                                   trailingpercent=sl)
+        print(premium_price)
         self.atm_put_limit_price = premium_price['ask']
         self.atm_put_parendID = k['parent_id']
         self.atm_put_fill = k['avgFill']

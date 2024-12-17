@@ -164,7 +164,7 @@ class IBTWSAPI:
 				print("Fill price:", fill_price)
 				return buy_trade, fill_price
 			else:
-				print(f"Waiting... {n + 1} seconds")
+				print(f"Waiting...{contract.right}... {n + 1} seconds")
 				await asyncio.sleep(1)
 	async def current_price(self, symbol, exchange='CBOE'):
 		spx_contract = Index(symbol, exchange)
@@ -333,11 +333,6 @@ class IBTWSAPI:
 			# sl_order.parentId = en_order.orderId
 			sl_order.transmit = True
 
-		# Targetprofit order
-		# if targetprofit:
-		# 	tp_order = LimitOrder(action=get_exit_side, totalQuantity=quantity, lmtPrice=targetprofit)
-		# 	tp_order.parentId = en_order.orderId
-		# 	tp_order.transmit = True
 
 		entry_order_info = self.client.placeOrder(contract=c, order=en_order)
 		self.client.sleep(1)
@@ -364,7 +359,7 @@ class IBTWSAPI:
 						"avgFill": x
 					}
 				else:
-					print(f"Waiting... {n + 1} seconds")
+					print(f"Waiting...{right}... {n + 1} seconds")
 					await asyncio.sleep(1)
 		else:
 			print("Give Stoploss as one of the parameters")
@@ -423,7 +418,6 @@ class IBTWSAPI:
 
 	async def get_latest_premium_price(self, symbol, expiry, strike, right, exchange="CBOE"):
 
-		# Create the option contract
 		option_contract = Option(
 			symbol=symbol,
 			lastTradeDateOrContractMonth=expiry,
@@ -432,7 +426,6 @@ class IBTWSAPI:
 			exchange=exchange,
 		)
 
-		# Qualify the contract
 		self.client.qualifyContracts(option_contract)
 
 		self.client.reqMarketDataType(4)
@@ -440,8 +433,6 @@ class IBTWSAPI:
 		self.ib.sleep(7)
 		print("market data is",market_data)
 
-
-		# Extract relevant prices
 		premium_price = {
 			"bid": market_data.bid,
 			"ask": market_data.ask,
@@ -451,7 +442,6 @@ class IBTWSAPI:
 		return premium_price
 
 	async def modify_option_trail_percent(self, trade, new_trailing_percent=0.14):
-		print(trade.order.orderId)
 		modified_order = Order(
 			orderId=trade.order.orderId,
 			action=trade.order.action,
@@ -480,36 +470,6 @@ class IBTWSAPI:
 
 		return new_trade
 
-	# Example usage:
-	"""
-	import asyncio
-
-	async def main():
-	    ib = IB()
-	    await ib.connectAsync('127.0.0.1', 7497, clientId=12)
-
-	    try:
-	        # Get existing trade
-	        trades = ib.trades()
-	        target_trade = next((t for t in trades 
-	                           if t.order.orderId == 210 
-	                           and t.contract.symbol == 'SPX'), None)
-
-	        if target_trade:
-	            modified_trade = await modify_option_trail_percent(ib, target_trade)
-	            print(f"Trail modified successfully. New trailing percent: {modified_trade.order.trailingPercent}")
-	        else:
-	            print("Target trade not found")
-
-	    except Exception as e:
-	        print(f"Error: {e}")
-	    finally:
-	        await ib.disconnectAsync()
-
-	# Run the async function
-	asyncio.run(main())
-	"""
-
 async def main():
     CONTRACTS = ["Stocks", "Options", "FutureContract", "FutureContractOptions"]
 
@@ -529,96 +489,3 @@ async def main():
     print(positions)
 
 
-# if __name__ == "__main__":
-#     asyncio.run(main())
-"""
-if __name__ == "__main__":
-
-	CONTRACTS = ["Stocks", "Options", "FutureContract", "FutureContractOptions"]
-
-	creds = {
-		"host" : "0.0.0.0",
-		"port" : 4001,
-		"client_id" : 2,
-	}
-
-	api = IBTWSAPI(creds=creds)
-	api.connect()
-	print("connected")
-	positions=api.get_positions()
-	print(positions)
-"""
-	# NOTE Get the connection status of the api client
-	# is_connected_to_tws = api.is_connected()
-	# print(is_connected_to_tws)
-
-	# NOTE Get account info
-	# account_info = api.get_account_info()
-	# print(account_info)
-	# [print(i) for i in account_info]
-
-	# NOTE Get account balance
-	# balance = api.get_account_balance()
-	# print(balance)
-
-	# NOTE Get contract info
-	# contract = CONTRACTS[1]
-	# symbol = "AAPL"
-	# exchange = "SMART"
-	# contract_info = api.get_contract_info(contract=contract, symbol=symbol, exchange=exchange)
-	# print(contract_info)
-
-	# NOTE Get expiries and strikes
-
-	#technology = CONTRACTS[3]
-	#ticker = "CL"
-	#ens = api.get_expiries_and_strikes(technology=technology, ticker=ticker)
-	#print(ens)
-
-	# NOTE Get candle data
-	# contract = CONTRACTS[2]
-	# symbol = "ES"
-	# timeframe = "5m"
-	# period = "2d"
-	# exchange = "GLOBEX"
-	# df = api.get_candle_data(contract=contract, symbol=symbol, timeframe=timeframe, period=period, exchange=exchange)
-	# print(df)
-
-	# NOTE Get options chain
-	# symbol = "AAPL"
-	# exp_list = [20221012]
-	# chain = api.get_option_chain(symbol=symbol, exp_list=exp_list)
-	# print(chain)
-
-	# NOTE Place order
-	# contract = CONTRACTS[0]
-	# symbol = "AAPL"
-	# side = "buy"
-	# quantity = 1
-	# order_type = "MARKET"
-	# price = None
-	# exchange = "SMART"
-	# order_info = api.place_order(contract=contract, symbol=symbol, side=side, quantity=quantity, order_type=order_type, price=price, exchange=exchange)
-	# print(order_info)
-
-	# NOTE Place bracket order
-	# contract = CONTRACTS[0]
-	# symbol = "AAPL"
-	# side = "buy"
-	# quantity = 1
-	# order_type = "MARKET"
-	# price = None
-	# exchange = "SMART"
-	# stoploss = 139.0
-	# targetprofit = None
-	# orders_info = api.place_bracket_order(contract=contract, symbol=symbol, side=side, quantity=quantity, order_type=order_type, price=price, exchange=exchange, stoploss=stoploss, targetprofit=targetprofit)
-	# print(orders_info)
-
-	# NOTE Cancel order
-	# order_id = 124
-	# api.cancel_order(order_id=order_id)
-
-	# NOTE Query_order
-	# order_id = 1248689
-	# order_info = api.query_order(order_id=order_id)
-	# print(order_info)
