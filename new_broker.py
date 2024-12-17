@@ -8,6 +8,8 @@ Interactive broker's API maintained with IB-INSYNC library
 
 # Importing built-in libraries
 import asyncio
+import time
+
 import pytz
 import datetime as dt
 import credentials
@@ -21,6 +23,7 @@ class IBTWSAPI:
 
 	def __init__(self, creds:dict):
 
+		self.client = None
 		self.CREDS = creds
 
 	def _create_contract(self, contract:str, symbol:str, exchange:str, expiry:str=..., strike:int=..., right:str=...):
@@ -42,9 +45,10 @@ class IBTWSAPI:
 		Connect the system with TWS account\n
 		"""
 		# try:
-		host, port = self.CREDS['host'], self.CREDS['port']
+		host, port = credentials.host, credentials.port
 		self.client = IB()
-		self.client.connect(host=host, port=port, clientId=self.CREDS['client_id'], timeout=60)
+		self.ib=self.client
+		self.client.connect(host=host, port=port, clientId=13, timeout=60)
 		print("Connected")
 
 		# except Exception as e:
@@ -130,12 +134,13 @@ class IBTWSAPI:
 
 		if secType == 'IND':
 			contract = Index(symbol, 'CBOE', "USD")
+
 		elif secType == 'STK':
 			contract = Stock(symbol, 'SMART', "USD")
 		else:
 			raise ValueError(f"Unsupported secType: {secType}. Use 'IND' or 'STK'.")
 
-		self.client.qualifyContracts(contract)
+		qc=self.client.qualifyContracts(contract)
 
 		self.client.reqMarketDataType(4)
 
@@ -163,15 +168,18 @@ class IBTWSAPI:
 				await asyncio.sleep(1)
 	async def current_price(self, symbol, exchange='CBOE'):
 		spx_contract = Index(symbol, exchange)
-		self.client.qualifyContracts(spx_contract)
-		self.client.reqMarketDataType(4)
+		#spx_contract=self.client.qualifyContracts(spx_contract)[0]
+		#print("qualified contract",spx_contract)
+		#self.client.reqMarketDataType(4)
 
-		market_data = self.client.reqMktData(spx_contract, '', snapshot=True)
-		while util.isNan(market_data.last):
-			await asyncio.sleep(0.1)
+		market_data = self.client.reqMktData(spx_contract)
+		self.ib.sleep(7)
 
-		if market_data.last > 0:
-			return market_data.last
+		# # print(market_data)
+		# while util.isNan(market_data.last):
+		# 	self.ib.sleep(3)
+		if market_data.close > 0:
+			return market_data.close
 		else:
 			print("Market data is not subscribed or unavailable for", symbol)
 			return None
@@ -358,6 +366,8 @@ class IBTWSAPI:
 				else:
 					print(f"Waiting... {n + 1} seconds")
 					await asyncio.sleep(1)
+		else:
+			print("Give Stoploss as one of the parameters")
 		# self.client.sleep(1)
 		# if targetprofit:
 		# 	targetprofit_order_info = self.client.placeOrder(contract=c, order=tp_order)
@@ -386,24 +396,24 @@ class IBTWSAPI:
 			if order.permId == order_id:
 				return order
 
-	# async def modify_trailing_stop_percent(self, order_id, new_trailing_percent):
-	# 	# Get the existing order
-	# 	trades = self.client.trades()
-	# 	target_trade = next((t for t in trades if t.order.orderId == order_id), None)
-	#
-	# 	if not target_trade:
-	# 		raise ValueError(f"Order with ID {order_id} not found")
-	#
-	# 	# Create a new order with modified trailing percent
-	# 	modified_order = target_trade.order
-	# 	modified_order.trailingPercent = new_trailing_percent
-	#
-	# 	# Submit the modification
-	# 	self.client.placeOrder(target_trade.contract, modified_order)
-	#
-	# 	await self.client.sleep(10)
-	#
-	# 	return modified_order
+	async def modify_trailing_stop_percent(self, order_id, new_trailing_percent):
+		# Get the existing order
+		trades = self.client.trades()
+		target_trade = next((t for t in trades if t.order.orderId == order_id), None)
+
+		if not target_trade:
+			raise ValueError(f"Order with ID {order_id} not found")
+
+		# Create a new order with modified trailing percent
+		modified_order = target_trade.order
+		modified_order.trailingPercent = new_trailing_percent
+
+		# Submit the modification
+		self.client.placeOrder(target_trade.contract, modified_order)
+
+		await self.client.sleep(10)
+
+		return modified_order
 
 	async def connect_app(self, app) -> None:
 		"""
@@ -425,12 +435,11 @@ class IBTWSAPI:
 		# Qualify the contract
 		self.client.qualifyContracts(option_contract)
 
-		# Request market data
-		market_data = self.client.reqMktData(option_contract, '', snapshot=True)
-
 		self.client.reqMarketDataType(4)
-		while util.isNan(market_data.last):
-			await asyncio.sleep(10)
+		market_data = self.client.reqMktData(option_contract, '', snapshot=True)
+		self.ib.sleep(7)
+		print("market data is",market_data)
+
 
 		# Extract relevant prices
 		premium_price = {
@@ -442,18 +451,7 @@ class IBTWSAPI:
 		return premium_price
 
 	async def modify_option_trail_percent(self, trade, new_trailing_percent=0.14):
-		"""
-        Asynchronously modify the trailing percentage for an option order
-
-        Args:
-            ib: IB instance that is already connected
-            trade: Existing trade object
-            new_trailing_percent: New trailing percentage value (default 0.14)
-
-        Returns:
-            Modified order object
-        """
-		# Create modified order maintaining all original parameters
+		print(trade.order.orderId)
 		modified_order = Order(
 			orderId=trade.order.orderId,
 			action=trade.order.action,
@@ -465,23 +463,20 @@ class IBTWSAPI:
 			parentId=trade.order.parentId,
 			displaySize=trade.order.displaySize,
 			trailStopPrice=trade.order.trailStopPrice,
-			trailingPercent=new_trailing_percent,  # Modified trailing percent
+			trailingPercent=new_trailing_percent,
 			openClose=trade.order.openClose,
 			account=trade.order.account,
 			clearingIntent=trade.order.clearingIntent,
 			dontUseAutoPriceForHedge=trade.order.dontUseAutoPriceForHedge
 		)
 
-		# Cancel existing order
-		self.client.cancelOrder(trade.order)
+		# self.client.cancelOrder(trade.order)
 
-		# Wait a brief moment to ensure cancellation is processed
-		self.client.sleep(0.2)
+		# self.client.sleep(4)
 
-		# Place new order with modified trailing percent
 		new_trade = self.client.placeOrder(trade.contract, modified_order)
 
-		self.client.sleep(10)
+		self.client.sleep(3)
 
 		return new_trade
 
@@ -519,9 +514,9 @@ async def main():
     CONTRACTS = ["Stocks", "Options", "FutureContract", "FutureContractOptions"]
 
     creds = {
-        "host": "0.0.0.0",
-        "port": 4001,
-        "client_id": 2,
+        "host": credentials.host,
+        "port": credentials.port,
+        "client_id": 12,
     }
 
     api = IBTWSAPI(creds=creds)
