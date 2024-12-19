@@ -4,7 +4,6 @@ import asyncio
 from ib_insync import *
 import nest_asyncio
 
-
 nest_asyncio.apply()
 
 creds = {
@@ -32,6 +31,7 @@ class Strategy:
         self.atm_call_fill = None
         self.atm_call_limit_price = None
         self.hedge_otm_difference = 10
+        self.temp_order = None
 
     async def main(self):
         print("\n1. Testing connection...")
@@ -46,13 +46,16 @@ class Strategy:
 
         await asyncio.gather(
             self.place_atm_call_order(self.atm_sl),
-            self.place_atm_put_order(self.atm_sl),
-        )
+            self.place_atm_put_order(self.atm_sl)
 
+        )
         await asyncio.gather(
             self.atm_call_trail_sl(),
-            self.atm_put_trail_sl(),
+            self.atm_put_trail_sl()
         )
+
+    async def check_positions(self):
+        pass
 
     async def atm_call_trail_sl(self):
         temp_percentage = 0.95
@@ -106,7 +109,10 @@ class Strategy:
             lastTradeDateOrContractMonth=credentials.date,
             strike=self.otm_closest_call,
             right='C',
-            exchange=credentials.exchange
+            exchange=credentials.exchange,
+            currency="USD",
+            multiplier='100',
+            tradingClass='SPX'
         )
         await self.broker.place_market_order(contract=spx_contract_call, qty=1, side="BUY")
 
@@ -115,9 +121,12 @@ class Strategy:
             lastTradeDateOrContractMonth=credentials.date,
             strike=self.otm_closest_put,
             right='P',
-            exchange=credentials.exchange
+            exchange=credentials.exchange,
+            currency="USD",
+            multiplier='100',
+            tradingClass='SPX'
         )
-        await self.broker.place_market_order(contract=spx_contract_call, qty=1, side="BUY")
+        # await self.broker.place_market_order(contract=spx_contract_call, qty=1, side="BUY")
 
     async def close_open_hedges(self, close_put=False, close_call=False):
         if close_call:
@@ -126,7 +135,10 @@ class Strategy:
                 lastTradeDateOrContractMonth=credentials.date,
                 strike=self.otm_closest_call,
                 right='C',
-                exchange=credentials.exchange
+                exchange=credentials.exchange,
+                currency="USD",
+                multiplier='100',
+                tradingClass='SPX'
             )
             await self.broker.place_market_order(contract=spx_contract_call, qty=1, side="SELL")
         if close_put:
@@ -135,7 +147,10 @@ class Strategy:
                 lastTradeDateOrContractMonth=credentials.date,
                 strike=self.otm_closest_call,
                 right='P',
-                exchange=credentials.exchange
+                exchange=credentials.exchange,
+                currency="USD",
+                multiplier='100',
+                tradingClass='SPX'
             )
             await self.broker.place_market_order(contract=spx_contract_put, qty=1, side="SELL")
 
@@ -143,13 +158,17 @@ class Strategy:
         current_price = await self.broker.current_price(credentials.instrument, "CBOE")
         self.closest_current_price = min(self.strikes, key=lambda x: abs(x - current_price))
         premium_price = await self.broker.get_latest_premium_price(credentials.instrument, credentials.date,
-                                                                   self.closest_current_price,"C")
+                                                                   self.closest_current_price, "C")
         spx_contract = Option(
             symbol=credentials.instrument,
             lastTradeDateOrContractMonth=credentials.date,
             strike=self.closest_current_price,
             right='C',
-            exchange=credentials.exchange
+            exchange=credentials.exchange,
+            currency="USD",
+            multiplier='100',
+            tradingClass='SPX'
+
         )
 
         qualified_contracts = self.broker.client.qualifyContracts(spx_contract)
@@ -171,6 +190,7 @@ class Strategy:
         self.atm_call_limit_price = premium_price['ask']
         self.atm_call_parendID = k['parent_id']
         self.atm_call_fill = k['avgFill']
+        self.temp_order = k['order_info']
 
     async def place_atm_put_order(self, sl):
         current_price = await self.broker.current_price(credentials.instrument, "CBOE")
@@ -184,7 +204,10 @@ class Strategy:
             lastTradeDateOrContractMonth=credentials.date,
             strike=self.closest_current_price,
             right='P',
-            exchange=credentials.exchange
+            exchange=credentials.exchange,
+            currency="USD",
+            multiplier='100',
+            tradingClass='SPX'
         )
 
         qualified_contracts = self.broker.client.qualifyContracts(spx_contract)

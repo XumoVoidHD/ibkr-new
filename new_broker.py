@@ -1,12 +1,4 @@
 
-
-"""
-Interactive broker's API maintained with IB-INSYNC library
-
-	This is async library, use asyncio to maintain coroutines
-"""
-
-# Importing built-in libraries
 import asyncio
 import time
 
@@ -14,7 +6,6 @@ import pytz
 import datetime as dt
 import credentials
 
-# Importing third-party libraries
 from ib_insync import *		# pip install ib_insync
 import pandas as pd			# pip install pandas
 #util.logToConsole('DEBUG')
@@ -35,7 +26,7 @@ class IBTWSAPI:
 			return Stock(symbol=symbol, exchange=exchange, currency="USD")
 
 		elif contract == "options":
-			return Option(symbol=symbol, lastTradeDateOrContractMonth=expiry,exchange=exchange,currency="USD", strike=strike, right=right)
+			return Option(symbol=symbol, lastTradeDateOrContractMonth=expiry, exchange=exchange, currency="USD", strike=strike, right=right, multiplier="100",tradingClass='SPXW')
 
 		elif contract == "futureContracts":
 			return ContFuture(symbol=symbol, exchange=exchange, currency="USD")
@@ -77,7 +68,7 @@ class IBTWSAPI:
 				return float(acc.value)
 
 	async def get_positions(self):
-		return self.client.positions()[0]
+		return self.client.positions()
 
 	async def get_open_orders(self):
 		return self.client.reqOpenOrders()
@@ -356,10 +347,12 @@ class IBTWSAPI:
 						"targetprofit": targetprofit_order_info,
 						"contract": c,
 						"order": sl_order,
-						"avgFill": x
+						"avgFill": x,
+						"order_info": entry_order_info
 					}
 				else:
 					print(f"Waiting...{right}... {n + 1} seconds")
+					n+= 1
 					await asyncio.sleep(1)
 		else:
 			print("Give Stoploss as one of the parameters")
@@ -424,6 +417,9 @@ class IBTWSAPI:
 			strike=strike,
 			right=right,
 			exchange=exchange,
+			currency="USD",  # Add currency to disambiguate
+			multiplier="100",  # Ensure the multiplier matches
+			tradingClass="SPXW",  # Specify tradingClass (e.g., SPXW or SPX)
 		)
 
 		self.client.qualifyContracts(option_contract)
@@ -469,23 +465,5 @@ class IBTWSAPI:
 		self.client.sleep(3)
 
 		return new_trade
-
-async def main():
-    CONTRACTS = ["Stocks", "Options", "FutureContract", "FutureContractOptions"]
-
-    creds = {
-        "host": credentials.host,
-        "port": credentials.port,
-        "client_id": 12,
-    }
-
-    api = IBTWSAPI(creds=creds)
-    await api.connect()  # Note the use of 'await' here
-
-    print("Connected")
-
-    # Now that the connection is established, you can call other methods
-    positions = await api.get_positions()
-    print(positions)
 
 

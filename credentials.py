@@ -4,6 +4,6 @@ exchange = "SMART"
 currency = "USD"
 strike = 6000
 deviation = 10
-date = "20241217"
+date = "20241219"
 host = "127.0.0.1"
 data_type = 4
