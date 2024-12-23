@@ -37,7 +37,7 @@ class Strategy:
         self.temp_order = None
         self.call_rentry = 0
         self.put_rentry = 0
-        self.rentry_limit = 2
+        self.rentry_limit = credentials.number_of_re_entry
         self.call_order_placed = False
         self.put_order_placed = False
         self.call_hedge_open = False
@@ -59,6 +59,8 @@ class Strategy:
                 await self.place_atm_call_order(0.15)
                 await self.place_atm_put_order(0.15)
                 break
+            else:
+                print("Market hasn't opened yet")
             await asyncio.sleep(1)
 
         await asyncio.gather(
@@ -186,7 +188,7 @@ class Strategy:
         await self.place_atm_call_order(self.atm_sl)
         await self.atm_call_trail_sl()
 
-    async def order(self):
+    async def help_order(self):
         await self.place_hedge_orders(call=True, put=True)
         await self.place_atm_put_order(self.atm_sl)
         await self.place_atm_call_order(self.atm_sl)
@@ -379,6 +381,7 @@ class Strategy:
                 self.atm_put_limit_price = premium_price['ask']
                 self.atm_put_parendID = k['parent_id']
                 self.atm_put_fill = k['avgFill']
+                await asyncio.sleep(30)
 
 
 if __name__ == "__main__":

@@ -7,3 +7,4 @@ deviation = 10
 date = "20241224"
 host = "127.0.0.1"
 data_type = 4
+number_of_re_entry = 2
