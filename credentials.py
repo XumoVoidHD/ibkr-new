@@ -1,9 +1,9 @@
 port = 7497
 instrument = "SPX"
-exchange = "SMART"
+exchange = "CBOE"
 currency = "USD"
 strike = 6000
 deviation = 10
-date = "20241219"
+date = "20241224"
 host = "127.0.0.1"
 data_type = 4

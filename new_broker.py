@@ -283,22 +283,23 @@ class IBTWSAPI:
 
 	async def place_bracket_order(
 			self,
-			symbol:str,
-			quantity:int,
-			price:float=...,
-			stoploss:float=None,
-			targetprofit:float=None,
-			expiry:str=None,
-			strike:float=None,
-			right:str=None,
-			trailingpercent:float=False,
-		) -> dict:
+			symbol: str,
+			quantity: int,
+			price: float = ...,
+			stoploss: float = None,
+			targetprofit: float = None,
+			expiry: str = None,
+			strike: float = None,
+			right: str = None,
+			trailingpercent: float = False,
+	) -> dict:
 		"""
-		Places a bracket order\n
-		"""
+        Places a bracket order\n
+        """
 		get_exit_side = "BUY"
 		# Creating contract
-		c = self._create_contract(contract="options", symbol=symbol, exchange="SMART", expiry=expiry, strike=strike, right=right)
+		c = self._create_contract(contract="options", symbol=symbol, exchange="SMART", expiry=expiry, strike=strike,
+								  right=right)
 
 		entry_order_info, stoploss_order_info, targetprofit_order_info = None, None, None
 
@@ -323,7 +324,6 @@ class IBTWSAPI:
 			sl_order = StopOrder(action=get_exit_side, totalQuantity=quantity, stopPrice=stoploss)
 			# sl_order.parentId = en_order.orderId
 			sl_order.transmit = True
-
 
 		entry_order_info = self.client.placeOrder(contract=c, order=en_order)
 		self.client.sleep(1)
@@ -350,9 +350,36 @@ class IBTWSAPI:
 						"avgFill": x,
 						"order_info": entry_order_info
 					}
+				elif n >= 10:
+					# Convert to market order after 10 seconds
+					print(f"Limit order not filled after {n} seconds, converting to market order")
+					market_order = MarketOrder(action="SELL", totalQuantity=quantity)
+					market_order.orderId = self.client.client.getReqId()
+					market_order.transmit = True
+
+					# Cancel the existing limit order
+					await self.cancel_order(parent_id)
+					self.client.sleep(5)
+					# Place the market order
+					entry_order_info = self.client.placeOrder(contract=c, order=market_order)
+					self.client.sleep(5)
+
+					if entry_order_info.isDone():
+						fill_price = entry_order_info.orderStatus.avgFillPrice
+						print("Market order filled at:", fill_price)
+						return {
+							"parent_id": parent_id,
+							"entry": entry_order_info,
+							"stoploss": stoploss_order_info,
+							"targetprofit": targetprofit_order_info,
+							"contract": c,
+							"order": sl_order,
+							"avgFill": fill_price,
+							"order_info": entry_order_info
+						}
 				else:
 					print(f"Waiting...{right}... {n + 1} seconds")
-					n+= 1
+					n += 1
 					await asyncio.sleep(1)
 		else:
 			print("Give Stoploss as one of the parameters")
@@ -369,8 +396,8 @@ class IBTWSAPI:
 		"""
 		orders = self.client.reqOpenOrders()
 		for order in orders:
-			if order.orderId == order_id:
-				self.client.cancelOrder(order=order)
+			if order.orderStatus.orderId == order_id:
+				self.client.cancelOrder(order=order.orderStatus)
 
 	async def query_order(self, order_id:int) -> dict:
 		"""
@@ -419,14 +446,14 @@ class IBTWSAPI:
 			exchange=exchange,
 			currency="USD",  # Add currency to disambiguate
 			multiplier="100",  # Ensure the multiplier matches
-			tradingClass="SPXW",  # Specify tradingClass (e.g., SPXW or SPX)
+			# tradingClass="SPXW",  # Specify tradingClass (e.g., SPXW or SPX)
 		)
 
 		self.client.qualifyContracts(option_contract)
 
 		self.client.reqMarketDataType(4)
 		market_data = self.client.reqMktData(option_contract, '', snapshot=True)
-		self.ib.sleep(7)
+		self.ib.sleep(10)
 		print("market data is",market_data)
 
 		premium_price = {
