@@ -51,24 +51,26 @@ class Strategy:
         self.broker.ib.reqMarketDataType(4)
         self.strikes = await self.broker.fetch_strikes(credentials.instrument, "CBOE", secType="IND")
 
-        while True:
-            current_time = datetime.now(timezone('US/Eastern'))
-            target_time = current_time.replace(hour=9, minute=35, second=0, microsecond=0)
+        # while True:
+        #     current_time = datetime.now(timezone('US/Eastern'))
+        #     target_time = current_time.replace(hour=9, minute=35, second=0, microsecond=0)
+        #
+        #     if current_time >= target_time:
+        #         await self.place_hedge_orders(call=True, put=True)
+        #         await self.place_atm_put_order(0.15, initial=True)
+        #         await self.place_atm_call_order(0.15, initial=True)
+        #         break
+        #     else:
+        #         print("Market hasn't opened yet")
+        #     await asyncio.sleep(1)
+        #
+        # await asyncio.gather(
+        #     self.check_call_status(),
+        #     self.check_put_status(),
+        #     self.close_all_positions()
+        # )
 
-            if current_time >= target_time:
-                await self.place_hedge_orders(call=True, put=True)
-                await self.place_atm_put_order(0.15, initial=True)
-                await self.place_atm_call_order(0.15, initial=True)
-                break
-            else:
-                print("Market hasn't opened yet")
-            await asyncio.sleep(1)
-
-        await asyncio.gather(
-            self.check_call_status(),
-            self.check_put_status(),
-            self.close_all_positions()
-        )
+        await self.broker.cancel_all()
 
     async def close_all_positions(self):
         while True:

@@ -423,7 +423,7 @@ class IBTWSAPI:
                 exchange=credentials.exchange,
                 currency="USD",
                 multiplier='100',
-                # tradingClass='SPX'
+                tradingClass='SPX'
             )
             await self.place_market_order(contract=contract, qty=1, side=action)
             print(f"Closing position: {action} {quantity} {position.contract.localSymbol} at market")
