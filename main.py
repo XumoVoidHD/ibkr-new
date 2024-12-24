@@ -28,12 +28,12 @@ class Strategy:
         self.otm_closest_put = None
         self.broker = IBTWSAPI(creds=creds)
         self.strikes = None
-        self.atm_sl = 0.15
-        self.call_percent = 0.15
-        self.put_percent = 0.15
+        self.atm_sl = credentials.sl
+        self.call_percent = credentials.sl
+        self.put_percent = credentials.sl
         self.atm_call_fill = None
         self.atm_call_limit_price = None
-        self.hedge_otm_difference = 10
+        self.hedge_otm_difference = credentials.hedge_difference
         self.temp_order = None
         self.call_rentry = 0
         self.put_rentry = 0
@@ -41,6 +41,7 @@ class Strategy:
         self.call_order_placed = False
         self.put_order_placed = False
         self.call_hedge_open = False
+        self.should_continue = True
 
     async def main(self):
         print("\n1. Testing connection...")
@@ -56,8 +57,8 @@ class Strategy:
 
             if current_time >= target_time:
                 await self.place_hedge_orders(call=True, put=True)
-                await self.place_atm_call_order(0.15)
-                await self.place_atm_put_order(0.15)
+                await self.place_atm_put_order(0.15, initial=True)
+                await self.place_atm_call_order(0.15, initial=True)
                 break
             else:
                 print("Market hasn't opened yet")
@@ -65,11 +66,24 @@ class Strategy:
 
         await asyncio.gather(
             self.check_call_status(),
-            self.check_put_status()
+            self.check_put_status(),
+            self.close_all_positions()
         )
 
+    async def close_all_positions(self):
+        while True:
+            current_time = datetime.now(timezone('US/Eastern'))
+            target_time = current_time.replace(hour=15, minute=45, second=0, microsecond=0)
+
+            if current_time >= target_time:
+                await self.broker.cancel_all()
+                self.should_continue = False
+                break
+
+            await asyncio.sleep(10)
+
     async def check_call_status(self):
-        while self.call_rentry < self.rentry_limit:
+        while self.call_rentry < self.rentry_limit and self.should_continue:
             positions = await self.broker.get_positions()
             call_position_exists = any(
                 hasattr(position.contract, 'right') and
@@ -84,23 +98,28 @@ class Strategy:
                     self.call_hedge_open = False
 
                 while True:
+                    current_price = await self.broker.current_price(credentials.instrument, "CBOE")
+                    self.closest_current_price = min(self.strikes, key=lambda x: abs(x - current_price))
                     k = await self.broker.get_latest_premium_price(credentials.instrument, credentials.date,
                                                                    self.closest_current_price, "C")
+                    print("Checking call price")
                     check = k['ask']
                     if check <= self.atm_call_fill:
                         self.call_rentry += 1
                         self.call_order_placed = False
+                        await self.place_atm_call_order(0.15, initial=True)
                         await self.place_hedge_orders(call=True, put=False)
                         break
                     await asyncio.sleep(120)
             else:
+                print("Call positions still open")
                 await asyncio.sleep(5)
         else:
             print("Number of call re-entries exceeded")
             return
 
     async def check_put_status(self):
-        while self.call_rentry < self.rentry_limit:
+        while self.call_rentry < self.rentry_limit and self.should_continue:
             positions = await self.broker.get_positions()
             call_position_exists = any(
                 hasattr(position.contract, 'right') and
@@ -115,15 +134,23 @@ class Strategy:
                     self.put_hedge_open = False
 
                 while True:
+                    current_price = await self.broker.current_price(credentials.instrument, "CBOE")
+                    self.closest_current_price = min(self.strikes, key=lambda x: abs(x - current_price))
                     k = await self.broker.get_latest_premium_price(credentials.instrument, credentials.date,
                                                                    self.closest_current_price, "P")
+
+                    print("Checking put price")
                     check = k['ask']
                     if check <= self.atm_put_fill:
                         self.put_rentry += 1
                         self.put_order_placed = False
+                        await self.place_atm_call_order(0.15, initial=True)
                         await self.place_hedge_orders(call=False, put=True)
                         break
                     await asyncio.sleep(120)
+            else:
+                print("Put positions still open")
+                await asyncio.sleep(5)
         else:
             print("Number of put re-entries exceeded")
             return
@@ -198,7 +225,7 @@ class Strategy:
     async def atm_call_trail_sl(self):
         temp_percentage = 0.95
         while self.call_order_placed:
-
+            print("Checking trail call")
             k = await self.broker.get_latest_premium_price(credentials.instrument, credentials.date,
                                                            self.closest_current_price, "C")
             check = k['ask']
@@ -219,7 +246,8 @@ class Strategy:
 
     async def atm_put_trail_sl(self):
         temp_percentage = 0.95
-        while True:
+        while self.put_order_placed:
+            print("Checking trail put")
             k = await self.broker.get_latest_premium_price(credentials.instrument, credentials.date,
                                                            self.closest_current_price, "P")
             check = k['ask']
@@ -290,7 +318,7 @@ class Strategy:
             spx_contract_put = Option(
                 symbol=credentials.instrument,
                 lastTradeDateOrContractMonth=credentials.date,
-                strike=self.otm_closest_call,
+                strike=self.otm_closest_put,
                 right='P',
                 exchange=credentials.exchange,
                 currency="USD",
@@ -301,7 +329,7 @@ class Strategy:
             print(spx_contract_put)
             await self.broker.place_market_order(contract=spx_contract_put, qty=1, side="SELL")
 
-    async def place_atm_call_order(self, sl):
+    async def place_atm_call_order(self, sl, initial):
         while True:
             if not self.call_order_placed:
                 current_price = await self.broker.current_price(credentials.instrument, "CBOE")
@@ -341,9 +369,11 @@ class Strategy:
                 self.atm_call_parendID = k['parent_id']
                 self.atm_call_fill = k['avgFill']
                 self.temp_order = k['order_info']
+                if initial:
+                    return
                 await asyncio.sleep(30)
 
-    async def place_atm_put_order(self, sl):
+    async def place_atm_put_order(self, sl, initial=False):
         while True:
             if not self.put_order_placed:
                 current_price = await self.broker.current_price(credentials.instrument, "CBOE")
@@ -381,6 +411,8 @@ class Strategy:
                 self.atm_put_limit_price = premium_price['ask']
                 self.atm_put_parendID = k['parent_id']
                 self.atm_put_fill = k['avgFill']
+                if initial:
+                    return
                 await asyncio.sleep(30)
 
 
