@@ -301,51 +301,45 @@ class IBTWSAPI:
             right: str = None,
             trailingpercent: float = False,
     ) -> dict:
-
         get_exit_side = "BUY"
-        # Creating contract
         c = self._create_contract(contract="options", symbol=symbol, exchange="SMART", expiry=expiry, strike=strike,
                                   right=right)
 
         entry_order_info, stoploss_order_info, targetprofit_order_info = None, None, None
-
         parent_id = self.client.client.getReqId()
 
-        # Entry order
         en_order = LimitOrder(action="SELL", totalQuantity=quantity, lmtPrice=price)
         en_order.orderId = parent_id
         en_order.transmit = False
 
-        # Stoploss order
-        if trailingpercent:
+        def create_trailing_stop(quantity, parent_id=None):
             sl_order = Order()
             sl_order.action = get_exit_side
             sl_order.totalQuantity = quantity
-            sl_order.parentId = en_order.orderId
             sl_order.orderType = "TRAIL"
             sl_order.trailingPercent = trailingpercent
-            # sl_order.trailStopPrice = stoploss
+            if parent_id:
+                sl_order.parentId = parent_id
             sl_order.transmit = True
+            return sl_order
+
+        if trailingpercent:
+            sl_order = create_trailing_stop(quantity, en_order.orderId)
         elif stoploss:
             sl_order = StopOrder(action=get_exit_side, totalQuantity=quantity, stopPrice=stoploss)
-            # sl_order.parentId = en_order.orderId
             sl_order.transmit = True
 
         entry_order_info = self.client.placeOrder(contract=c, order=en_order)
         self.client.sleep(1)
-        if stoploss:
+        if stoploss or trailingpercent:
             stoploss_order_info = self.client.placeOrder(contract=c, order=sl_order)
             print("waiting for order to be placed")
             n = 0
-            while True:  # Wait for up to 10 seconds
-                # Wait for 1 second before checking the order status
+            while True:
                 if entry_order_info.isDone():
-                    # Order was filled
                     print("Order placed successfully")
                     fill_price = entry_order_info.orderStatus.avgFillPrice
-                    print(stoploss_order_info)
                     print("Fill price:", fill_price)
-                    x = fill_price
                     return {
                         "parent_id": parent_id,
                         "entry": entry_order_info,
@@ -353,33 +347,36 @@ class IBTWSAPI:
                         "targetprofit": targetprofit_order_info,
                         "contract": c,
                         "order": sl_order,
-                        "avgFill": x,
+                        "avgFill": fill_price,
                         "order_info": entry_order_info
                     }
                 elif n >= 10:
-                    # Convert to market order after 10 seconds
                     print(f"Limit order not filled after {n} seconds, converting to market order")
                     market_order = MarketOrder(action="SELL", totalQuantity=quantity)
                     market_order.orderId = self.client.client.getReqId()
                     market_order.transmit = True
 
-                    # Cancel the existing limit order
                     await self.cancel_order(parent_id)
                     self.client.sleep(5)
-                    # Place the market order
+
                     entry_order_info = self.client.placeOrder(contract=c, order=market_order)
                     self.client.sleep(5)
 
                     if entry_order_info.isDone():
                         fill_price = entry_order_info.orderStatus.avgFillPrice
                         print("Market order filled at:", fill_price)
+
+                        # Place trailing stop after market order fills
+                        trailing_stop = create_trailing_stop(quantity)
+                        stoploss_order_info = self.client.placeOrder(contract=c, order=trailing_stop)
+
                         return {
                             "parent_id": parent_id,
                             "entry": entry_order_info,
                             "stoploss": stoploss_order_info,
                             "targetprofit": targetprofit_order_info,
                             "contract": c,
-                            "order": sl_order,
+                            "order": trailing_stop,
                             "avgFill": fill_price,
                             "order_info": entry_order_info
                         }

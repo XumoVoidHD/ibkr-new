@@ -62,7 +62,7 @@ class Strategy:
                 break
             else:
                 print("Market hasn't opened yet")
-            await asyncio.sleep(1)
+            await asyncio.sleep(10)
 
         await asyncio.gather(
             self.check_call_status(),
