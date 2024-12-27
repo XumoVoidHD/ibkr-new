@@ -28,9 +28,10 @@ class Strategy:
         self.otm_closest_put = None
         self.broker = IBTWSAPI(creds=creds)
         self.strikes = None
-        self.atm_sl = credentials.sl
-        self.call_percent = credentials.sl
-        self.put_percent = credentials.sl
+        self.call_sl = credentials.call_sl
+        self.put_sl = credentials.put_sl
+        self.call_percent = credentials.call_sl
+        self.put_percent = credentials.put_sl
         self.atm_call_fill = None
         self.atm_call_limit_price = None
         self.hedge_otm_difference = credentials.hedge_difference
@@ -42,6 +43,7 @@ class Strategy:
         self.put_order_placed = False
         self.call_hedge_open = False
         self.should_continue = True
+        self.testing = True
 
     async def main(self):
         print("\n1. Testing connection...")
@@ -55,10 +57,10 @@ class Strategy:
             current_time = datetime.now(timezone('US/Eastern'))
             target_time = current_time.replace(hour=9, minute=35, second=0, microsecond=0)
 
-            if current_time >= target_time:
+            if current_time >= target_time or self.testing:
                 await self.place_hedge_orders(call=True, put=True)
-                await self.place_atm_put_order(0.15, initial=True)
-                await self.place_atm_call_order(0.15, initial=True)
+                await self.place_atm_put_order(self.put_sl, initial=True)
+                await self.place_atm_call_order(self.call_sl, initial=True)
                 break
             else:
                 print("Market hasn't opened yet")
@@ -67,9 +69,10 @@ class Strategy:
         await asyncio.gather(
             self.check_call_status(),
             self.check_put_status(),
-            self.close_all_positions()
+            self.close_all_positions(),
+            self.atm_call_trail_sl(),
+            self.atm_put_trail_sl(),
         )
-
 
     async def close_all_positions(self):
         while True:
@@ -108,7 +111,7 @@ class Strategy:
                     if check <= self.atm_call_fill:
                         self.call_rentry += 1
                         self.call_order_placed = False
-                        await self.place_atm_call_order(0.15, initial=True)
+                        await self.place_atm_call_order(self.call_sl, initial=True)
                         await self.place_hedge_orders(call=True, put=False)
                         break
                     await asyncio.sleep(120)
@@ -145,7 +148,7 @@ class Strategy:
                     if check <= self.atm_put_fill:
                         self.put_rentry += 1
                         self.put_order_placed = False
-                        await self.place_atm_call_order(0.15, initial=True)
+                        await self.place_atm_call_order(self.put_sl, initial=True)
                         await self.place_hedge_orders(call=False, put=True)
                         break
                     await asyncio.sleep(120)
@@ -213,7 +216,7 @@ class Strategy:
 
     async def call_option(self):
         await self.place_hedge_orders(call=True, put=False)
-        await self.place_atm_call_order(self.atm_sl)
+        await self.place_atm_call_order(self.call_sl)
         await self.atm_call_trail_sl()
 
     async def help_order(self):
@@ -232,13 +235,13 @@ class Strategy:
             check = k['ask']
             if check <= temp_percentage * self.atm_call_limit_price:
                 if self.call_percent > 0.01:
-                    self.call_percent -= 0.01
+                    self.call_percent -= 1
                     open_orders_list = await self.broker.get_open_orders()
                     call = next((trade for trade in open_orders_list if trade.contract.right == "C"), None)
                     await self.broker.modify_option_trail_percent(call, self.call_percent)
                     temp_percentage -= 0.05
                     print(f"Bought: {self.atm_call_limit_price}\nCurrent percent: {temp_percentage}")
-                    await asyncio.sleep(120)
+                    await asyncio.sleep(300)
                 else:
                     break
             else:
@@ -254,13 +257,13 @@ class Strategy:
             check = k['ask']
             if check <= temp_percentage * self.atm_put_limit_price:
                 if self.put_percent > 0.01:
-                    self.put_percent -= 0.01
+                    self.put_percent -= 1
                     open_orders_list = await self.broker.get_open_orders()
                     put = next((trade for trade in open_orders_list if trade.contract.right == "P"), None)
                     await self.broker.modify_option_trail_percent(put, self.put_percent)
                     temp_percentage -= 0.05
                     print(f"Bought: {self.atm_put_limit_price}\nCurrent percent: {temp_percentage}")
-                    await asyncio.sleep(120)
+                    await asyncio.sleep(300)
                 else:
                     break
             else:

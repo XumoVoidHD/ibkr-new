@@ -9,4 +9,5 @@ host = "127.0.0.1"
 data_type = 4
 number_of_re_entry = 2
 hedge_difference = 10
-sl = 15
+call_sl = 15
+put_sl = 15
