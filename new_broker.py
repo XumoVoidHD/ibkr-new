@@ -300,6 +300,7 @@ class IBTWSAPI:
             strike: float = None,
             right: str = None,
             trailingpercent: float = False,
+            convert_to_mkt_order_in: int = 0
     ) -> dict:
         get_exit_side = "BUY"
         c = self._create_contract(contract="options", symbol=symbol, exchange="SMART", expiry=expiry, strike=strike,
@@ -350,7 +351,7 @@ class IBTWSAPI:
                         "avgFill": fill_price,
                         "order_info": entry_order_info
                     }
-                elif n >= 10:
+                elif convert_to_mkt_order_in > 0 and n >= convert_to_mkt_order_in:  # Modified condition
                     print(f"Limit order not filled after {n} seconds, converting to market order")
                     market_order = MarketOrder(action="SELL", totalQuantity=quantity)
                     market_order.orderId = self.client.client.getReqId()

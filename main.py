@@ -102,6 +102,7 @@ class Strategy:
                     self.call_hedge_open = False
 
                 while True:
+                    print("Checking call position")
                     current_price = await self.broker.current_price(credentials.instrument, "CBOE")
                     self.closest_current_price = min(self.strikes, key=lambda x: abs(x - current_price))
                     k = await self.broker.get_latest_premium_price(credentials.instrument, credentials.date,
@@ -138,6 +139,7 @@ class Strategy:
                     self.put_hedge_open = False
 
                 while True:
+                    print("Checking put position")
                     current_price = await self.broker.current_price(credentials.instrument, "CBOE")
                     self.closest_current_price = min(self.strikes, key=lambda x: abs(x - current_price))
                     k = await self.broker.get_latest_premium_price(credentials.instrument, credentials.date,
@@ -208,23 +210,6 @@ class Strategy:
         print(f"  Status: {'OPEN' if status['put']['is_open'] else 'CLOSED'}")
         if status['put']['details']:
             print(f"  Details: {status['put']['details']}")
-
-    async def put_option(self):
-        await self.place_hedge_orders(call=False, put=True)
-        await self.place_atm_put_order(self.atm_sl)
-        await self.atm_put_trail_sl()
-
-    async def call_option(self):
-        await self.place_hedge_orders(call=True, put=False)
-        await self.place_atm_call_order(self.call_sl)
-        await self.atm_call_trail_sl()
-
-    async def help_order(self):
-        await self.place_hedge_orders(call=True, put=True)
-        await self.place_atm_put_order(self.atm_sl)
-        await self.place_atm_call_order(self.atm_sl)
-        # await self.atm_put_trail_sl()
-        await self.print_order_status()
 
     async def atm_call_trail_sl(self):
         temp_percentage = 0.95
@@ -366,7 +351,8 @@ class Strategy:
                                                           expiry=credentials.date,
                                                           strike=self.closest_current_price,
                                                           right="C",
-                                                          trailingpercent=sl)
+                                                          trailingpercent=sl,
+                                                          convert_to_mkt_order_in=10)
 
                 self.call_order_placed = True
                 self.atm_call_limit_price = premium_price['ask']
@@ -409,7 +395,8 @@ class Strategy:
                                                           expiry=credentials.date,
                                                           strike=self.closest_current_price,
                                                           right="P",
-                                                          trailingpercent=sl)
+                                                          trailingpercent=sl,
+                                                          convert_to_mkt_order_in=10)
                 print(premium_price)
                 self.put_order_placed = True
                 self.atm_put_limit_price = premium_price['ask']
