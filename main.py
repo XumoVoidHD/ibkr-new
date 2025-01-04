@@ -55,7 +55,11 @@ class Strategy:
 
         while True:
             current_time = datetime.now(timezone('US/Eastern'))
-            target_time = current_time.replace(hour=credentials.entry_hour, minute=credentials.entry_minute, second=credentials.entry_second, microsecond=0)
+            target_time = current_time.replace(
+                hour=credentials.entry_hour,
+                minute=credentials.entry_minute,
+                second=credentials.entry_second,
+                microsecond=0)
 
             if current_time >= target_time or self.testing:
                 await self.place_hedge_orders(call=True, put=True)
@@ -77,7 +81,12 @@ class Strategy:
     async def close_all_positions(self):
         while True:
             current_time = datetime.now(timezone('US/Eastern'))
-            target_time = current_time.replace(hour=credentials.exit_hour, minute=credentials.exit_minute, second=credentials.exit_second, microsecond=0)
+            target_time = current_time.replace(
+                hour=credentials.exit_hour,
+                minute=credentials.exit_minute,
+                second=credentials.exit_second,
+                microsecond=0)
+
             if current_time >= target_time:
                 await self.broker.cancel_all()
                 self.should_continue = False
