@@ -74,7 +74,9 @@ class IBTWSAPI:
         return self.client.positions()
 
     async def get_open_orders(self):
-        return self.client.reqOpenOrders()
+        x = self.client.reqOpenOrders()
+        self.client.sleep(7)
+        return x
 
     async def get_contract_info(self, contract: str, symbol: str, exchange: str) -> dict:
         """
@@ -170,9 +172,9 @@ class IBTWSAPI:
         market_data = self.client.reqMktData(spx_contract)
         self.ib.sleep(7)
 
-        # # print(market_data)
+        # print(market_data)
         # while util.isNan(market_data.last):
-        # 	self.ib.sleep(3)
+        #     self.ib.sleep(3)
         if market_data.close > 0:
             return market_data.close
         else:
@@ -412,7 +414,7 @@ class IBTWSAPI:
         for position in positions:
             print(position)
             action = "SELL" if position.position > 0 else "BUY"
-            quantity = position.position
+            quantity = abs(position.position)
             contract = Option(
                 symbol=position.contract.symbol,
                 lastTradeDateOrContractMonth=position.contract.lastTradeDateOrContractMonth,
@@ -421,9 +423,8 @@ class IBTWSAPI:
                 exchange=credentials.exchange,
                 currency="USD",
                 multiplier='100',
-                tradingClass='SPX'
             )
-            await self.place_market_order(contract=contract, qty=1, side=action)
+            await self.place_market_order(contract=contract, qty=quantity, side=action)
             print(f"Closing position: {action} {quantity} {position.contract.localSymbol} at market")
 
     async def query_order(self, order_id: int) -> dict:

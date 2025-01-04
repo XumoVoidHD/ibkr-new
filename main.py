@@ -34,11 +34,11 @@ class Strategy:
         self.put_percent = credentials.put_sl
         self.atm_call_fill = None
         self.atm_call_limit_price = None
-        self.hedge_otm_difference = credentials.hedge_difference
         self.temp_order = None
         self.call_rentry = 0
         self.put_rentry = 0
-        self.rentry_limit = credentials.number_of_re_entry
+        self.rentry_call_limit = credentials.number_of_re_entry
+        self.rentry_put_limit = credentials.number_of_re_entry
         self.call_order_placed = False
         self.put_order_placed = False
         self.call_hedge_open = False
@@ -55,7 +55,7 @@ class Strategy:
 
         while True:
             current_time = datetime.now(timezone('US/Eastern'))
-            target_time = current_time.replace(hour=9, minute=35, second=0, microsecond=0)
+            target_time = current_time.replace(hour=credentials.entry_hour, minute=credentials.entry_minute, second=credentials.entry_second, microsecond=0)
 
             if current_time >= target_time or self.testing:
                 await self.place_hedge_orders(call=True, put=True)
@@ -77,17 +77,18 @@ class Strategy:
     async def close_all_positions(self):
         while True:
             current_time = datetime.now(timezone('US/Eastern'))
-            target_time = current_time.replace(hour=15, minute=45, second=0, microsecond=0)
-
+            target_time = current_time.replace(hour=credentials.exit_hour, minute=credentials.exit_minute, second=credentials.exit_second, microsecond=0)
             if current_time >= target_time:
                 await self.broker.cancel_all()
                 self.should_continue = False
+                await asyncio.sleep(20)
+                await self.broker.cancel_all()
                 break
 
             await asyncio.sleep(10)
 
     async def check_call_status(self):
-        while self.call_rentry < self.rentry_limit and self.should_continue:
+        while self.call_rentry < self.rentry_call_limit and self.should_continue:
             positions = await self.broker.get_positions()
             call_position_exists = any(
                 hasattr(position.contract, 'right') and
@@ -108,7 +109,7 @@ class Strategy:
                     k = await self.broker.get_latest_premium_price(credentials.instrument, credentials.date,
                                                                    self.closest_current_price, "C")
                     print("Checking call price")
-                    check = k['ask']
+                    check = k['mid']
                     if check <= self.atm_call_fill:
                         self.call_rentry += 1
                         self.call_order_placed = False
@@ -124,7 +125,7 @@ class Strategy:
             return
 
     async def check_put_status(self):
-        while self.call_rentry < self.rentry_limit and self.should_continue:
+        while self.call_rentry < self.rentry_put_limit and self.should_continue:
             positions = await self.broker.get_positions()
             call_position_exists = any(
                 hasattr(position.contract, 'right') and
@@ -146,7 +147,7 @@ class Strategy:
                                                                    self.closest_current_price, "P")
 
                     print("Checking put price")
-                    check = k['ask']
+                    check = k['mid']
                     if check <= self.atm_put_fill:
                         self.put_rentry += 1
                         self.put_order_placed = False
@@ -162,10 +163,8 @@ class Strategy:
             return
 
     async def check_order_status(self):
-        # Get all open orders
         open_orders_list = await self.broker.get_open_orders()
 
-        # Initialize status dictionaries
         call_status = {
             'is_open': False,
             'details': None
@@ -217,7 +216,7 @@ class Strategy:
             print("Checking trail call")
             k = await self.broker.get_latest_premium_price(credentials.instrument, credentials.date,
                                                            self.closest_current_price, "C")
-            check = k['ask']
+            check = k['mid']
             if check <= temp_percentage * self.atm_call_limit_price:
                 if self.call_percent > 0.01:
                     self.call_percent -= 1
@@ -239,7 +238,7 @@ class Strategy:
             print("Checking trail put")
             k = await self.broker.get_latest_premium_price(credentials.instrument, credentials.date,
                                                            self.closest_current_price, "P")
-            check = k['ask']
+            check = k['mid']
             if check <= temp_percentage * self.atm_put_limit_price:
                 if self.put_percent > 0.01:
                     self.put_percent -= 1
@@ -258,36 +257,42 @@ class Strategy:
     async def place_hedge_orders(self, call, put):
         current_price = await self.broker.current_price(credentials.instrument)
         closest_strike = min(self.strikes, key=lambda x: abs(x - current_price))
-        self.otm_closest_call = closest_strike + self.hedge_otm_difference
-        self.otm_closest_put = closest_strike - self.hedge_otm_difference
-        spx_contract_call = Option(
-            symbol=credentials.instrument,
-            lastTradeDateOrContractMonth=credentials.date,
-            strike=self.otm_closest_call,
-            right='C',
-            exchange=credentials.exchange,
-            currency="USD",
-            multiplier='100',
-            # tradingClass='SPX'
-        )
-        if call:
-            await self.broker.place_market_order(contract=spx_contract_call, qty=1, side="BUY")
-            self.call_hedge_open = True
+        self.otm_closest_call = closest_strike + (credentials.OTM_CALL_HEDGE*5)
+        self.otm_closest_put = closest_strike - (credentials.OTM_PUT_HEDGE*5)
 
-        spx_contract_call = Option(
-            symbol=credentials.instrument,
-            lastTradeDateOrContractMonth=credentials.date,
-            strike=self.otm_closest_put,
-            right='P',
-            exchange=credentials.exchange,
-            currency="USD",
-            multiplier='100',
-            # tradingClass='SPX'
-        )
+        if call:
+            spx_contract_call = Option(
+                symbol=credentials.instrument,
+                lastTradeDateOrContractMonth=credentials.date,
+                strike=self.otm_closest_call,
+                right='C',
+                exchange=credentials.exchange,
+                currency="USD",
+                multiplier='100'
+            )
+            try:
+                await self.broker.place_market_order(contract=spx_contract_call, qty=1, side="BUY")
+                self.call_hedge_open = True
+            except Exception as e:
+                print(f"Error placing call hedge order: {str(e)}")
+                # You might want to implement retry logic or additional error handling here
 
         if put:
-            await self.broker.place_market_order(contract=spx_contract_call, qty=1, side="BUY")
-            self.put_hedge_open = True
+            spx_contract_put = Option(
+                symbol=credentials.instrument,
+                lastTradeDateOrContractMonth=credentials.date,
+                strike=self.otm_closest_put,
+                right='P',
+                exchange=credentials.exchange,
+                currency="USD",
+                multiplier='100'
+            )
+            try:
+                await self.broker.place_market_order(contract=spx_contract_put, qty=1, side="BUY")
+                self.put_hedge_open = True
+            except Exception as e:
+                print(f"Error placing put hedge order: {str(e)}")
+                # You might want to implement retry logic or additional error handling here
 
     async def close_open_hedges(self, close_put=False, close_call=False):
         if close_call:
@@ -298,11 +303,14 @@ class Strategy:
                 right='C',
                 exchange=credentials.exchange,
                 currency="USD",
-                multiplier='100',
-                # tradingClass='SPX'
-                # localSymbol='SPXW  241224C05855000'
+                multiplier='100'
             )
-            await self.broker.place_market_order(contract=spx_contract_call, qty=1, side="SELL")
+            try:
+                await self.broker.place_market_order(contract=spx_contract_call, qty=1, side="SELL")
+            except Exception as e:
+                print(f"Error closing call hedge: {str(e)}")
+                # Implement retry logic or additional error handling if needed
+
         if close_put:
             spx_contract_put = Option(
                 symbol=credentials.instrument,
@@ -311,99 +319,129 @@ class Strategy:
                 right='P',
                 exchange=credentials.exchange,
                 currency="USD",
-                multiplier='100',
-                # tradingClass='SPXW'
-                # localSymbol='SPXW  241224P05875000'
+                multiplier='100'
             )
-            print(spx_contract_put)
-            await self.broker.place_market_order(contract=spx_contract_put, qty=1, side="SELL")
+            try:
+                await self.broker.place_market_order(contract=spx_contract_put, qty=1, side="SELL")
+            except Exception as e:
+                print(f"Error closing put hedge: {str(e)}")
+                # Implement retry logic or additional error handling if needed
 
     async def place_atm_call_order(self, sl, initial):
         while True:
             if not self.call_order_placed:
-                current_price = await self.broker.current_price(credentials.instrument, "CBOE")
-                self.closest_current_price = min(self.strikes, key=lambda x: abs(x - current_price))
-                premium_price = await self.broker.get_latest_premium_price(credentials.instrument, credentials.date,
-                                                                           self.closest_current_price, "C")
-                spx_contract = Option(
-                    symbol=credentials.instrument,
-                    lastTradeDateOrContractMonth=credentials.date,
-                    strike=self.closest_current_price,
-                    right='C',
-                    exchange=credentials.exchange,
-                    currency="USD",
-                    multiplier='100',
-                    # tradingClass='SPX'
+                try:
+                    current_price = await self.broker.current_price(credentials.instrument, "CBOE")
+                    self.closest_current_price = min(self.strikes, key=lambda x: abs(x - current_price))
+                    target_price = self.closest_current_price
+                    if credentials.ATM_CALL > 0:
+                        target_price += 5 * credentials.ATM_CALL
 
-                )
+                    premium_price = await self.broker.get_latest_premium_price(
+                        symbol=credentials.instrument,
+                        expiry=credentials.date,
+                        strike=target_price,
+                        right="C"
+                    )
 
-                qualified_contracts = self.broker.client.qualifyContracts(spx_contract)
-                if not qualified_contracts:
-                    raise ValueError("Failed to qualify contract with IBKR.")
-                print('last price is', premium_price['last'])
+                    spx_contract = Option(
+                        symbol=credentials.instrument,
+                        lastTradeDateOrContractMonth=credentials.date,
+                        strike=target_price,
+                        right='C',
+                        exchange=credentials.exchange,
+                        currency="USD",
+                        multiplier='100'
+                    )
 
-                stop_loss = premium_price['last'] * (1 - self.call_percent)
+                    qualified_contracts = self.broker.client.qualifyContracts(spx_contract)
+                    if not qualified_contracts:
+                        raise ValueError("Failed to qualify contract with IBKR.")
+                    print('last price is', premium_price['last'])
 
-                k = await self.broker.place_bracket_order(symbol=credentials.instrument,
-                                                          quantity=1,
-                                                          price=premium_price['ask'],
-                                                          stoploss=stop_loss,
-                                                          expiry=credentials.date,
-                                                          strike=self.closest_current_price,
-                                                          right="C",
-                                                          trailingpercent=sl,
-                                                          convert_to_mkt_order_in=10)
+                    stop_loss = premium_price['last'] * (1 - self.call_percent)
 
-                self.call_order_placed = True
-                self.atm_call_limit_price = premium_price['ask']
-                self.atm_call_parendID = k['parent_id']
-                self.atm_call_fill = k['avgFill']
-                self.temp_order = k['order_info']
-                if initial:
-                    return
+                    k = await self.broker.place_bracket_order(
+                        symbol=credentials.instrument,
+                        quantity=1,
+                        price=premium_price['mid'],
+                        stoploss=stop_loss,
+                        expiry=credentials.date,
+                        strike=target_price,
+                        right="C",
+                        trailingpercent=sl,
+                        convert_to_mkt_order_in=credentials.conversion_time
+                    )
+
+                    self.call_order_placed = True
+                    self.atm_call_limit_price = premium_price['mid']
+                    self.atm_call_parendID = k['parent_id']
+                    self.atm_call_fill = k['avgFill']
+                    self.temp_order = k['order_info']
+                    if initial:
+                        return
+                except Exception as e:
+                    print(f"Error placing ATM call order: {str(e)}")
+                    await asyncio.sleep(10)  # Wait before retrying
+                    continue
+
                 await asyncio.sleep(30)
 
     async def place_atm_put_order(self, sl, initial=False):
         while True:
             if not self.put_order_placed:
-                current_price = await self.broker.current_price(credentials.instrument, "CBOE")
-                self.closest_current_price = min(self.strikes, key=lambda x: abs(x - current_price))
-                premium_price = await self.broker.get_latest_premium_price(symbol=credentials.instrument,
-                                                                           expiry=credentials.date,
-                                                                           strike=self.closest_current_price,
-                                                                           right="P")
-                spx_contract = Option(
-                    symbol=credentials.instrument,
-                    lastTradeDateOrContractMonth=credentials.date,
-                    strike=self.closest_current_price,
-                    right='P',
-                    exchange=credentials.exchange,
-                    currency="USD",
-                    multiplier='100',
-                    # tradingClass='SPX'
-                )
+                try:
+                    current_price = await self.broker.current_price(credentials.instrument, "CBOE")
+                    self.closest_current_price = min(self.strikes, key=lambda x: abs(x - current_price))
+                    target_price = self.closest_current_price
+                    if credentials.ATM_CALL > 0:
+                        target_price -= 5 * credentials.ATM_CALL
 
-                qualified_contracts = self.broker.client.qualifyContracts(spx_contract)
-                if not qualified_contracts:
-                    raise ValueError("Failed to qualify contract with IBKR.")
-                print('last price is', premium_price['last'])
-                stop_loss = premium_price['last'] * (1 - self.put_percent)
-                k = await self.broker.place_bracket_order(symbol=credentials.instrument,
-                                                          quantity=1,
-                                                          price=premium_price['ask'],
-                                                          stoploss=stop_loss,
-                                                          expiry=credentials.date,
-                                                          strike=self.closest_current_price,
-                                                          right="P",
-                                                          trailingpercent=sl,
-                                                          convert_to_mkt_order_in=10)
-                print(premium_price)
-                self.put_order_placed = True
-                self.atm_put_limit_price = premium_price['ask']
-                self.atm_put_parendID = k['parent_id']
-                self.atm_put_fill = k['avgFill']
-                if initial:
-                    return
+                    premium_price = await self.broker.get_latest_premium_price(
+                        symbol=credentials.instrument,
+                        expiry=credentials.date,
+                        strike=target_price,
+                        right="P"
+                    )
+                    spx_contract = Option(
+                        symbol=credentials.instrument,
+                        lastTradeDateOrContractMonth=credentials.date,
+                        strike=target_price,
+                        right='P',
+                        exchange=credentials.exchange,
+                        currency="USD",
+                        multiplier='100'
+                    )
+
+                    qualified_contracts = self.broker.client.qualifyContracts(spx_contract)
+                    if not qualified_contracts:
+                        raise ValueError("Failed to qualify contract with IBKR.")
+                    print('last price is', premium_price['last'])
+                    stop_loss = premium_price['last'] * (1 - self.put_percent)
+
+                    k = await self.broker.place_bracket_order(
+                        symbol=credentials.instrument,
+                        quantity=1,
+                        price=premium_price['mid'],
+                        stoploss=stop_loss,
+                        expiry=credentials.date,
+                        strike=target_price,
+                        right="P",
+                        trailingpercent=sl,
+                        convert_to_mkt_order_in=credentials.conversion_time
+                    )
+
+                    self.put_order_placed = True
+                    self.atm_put_limit_price = premium_price['mid']
+                    self.atm_put_parendID = k['parent_id']
+                    self.atm_put_fill = k['avgFill']
+                    if initial:
+                        return
+                except Exception as e:
+                    print(f"Error placing ATM put order: {str(e)}")
+                    await asyncio.sleep(10)  # Wait before retrying
+                    continue
+
                 await asyncio.sleep(30)
 
 
