@@ -45,6 +45,7 @@ class Strategy:
         self.should_continue = True
         self.testing = True
 
+
     async def main(self):
         print("\n1. Testing connection...")
         await self.broker.connect()
@@ -280,7 +281,7 @@ class Strategy:
                 multiplier='100'
             )
             try:
-                await self.broker.place_market_order(contract=spx_contract_call, qty=1, side="BUY")
+                await self.broker.place_market_order(contract=spx_contract_call, qty=credentials.call_hedge_quantity, side="BUY")
                 self.call_hedge_open = True
             except Exception as e:
                 print(f"Error placing call hedge order: {str(e)}")
@@ -297,7 +298,7 @@ class Strategy:
                 multiplier='100'
             )
             try:
-                await self.broker.place_market_order(contract=spx_contract_put, qty=1, side="BUY")
+                await self.broker.place_market_order(contract=spx_contract_put, qty=credentials.put_hedge_quantity, side="BUY")
                 self.put_hedge_open = True
             except Exception as e:
                 print(f"Error placing put hedge order: {str(e)}")
@@ -315,7 +316,7 @@ class Strategy:
                 multiplier='100'
             )
             try:
-                await self.broker.place_market_order(contract=spx_contract_call, qty=1, side="SELL")
+                await self.broker.place_market_order(contract=spx_contract_call, qty=credentials.call_hedge_quantity, side="SELL")
             except Exception as e:
                 print(f"Error closing call hedge: {str(e)}")
                 # Implement retry logic or additional error handling if needed
@@ -331,7 +332,7 @@ class Strategy:
                 multiplier='100'
             )
             try:
-                await self.broker.place_market_order(contract=spx_contract_put, qty=1, side="SELL")
+                await self.broker.place_market_order(contract=spx_contract_put, qty=credentials.put_hedge_quantity, side="SELL")
             except Exception as e:
                 print(f"Error closing put hedge: {str(e)}")
                 # Implement retry logic or additional error handling if needed
@@ -372,7 +373,7 @@ class Strategy:
 
                     k = await self.broker.place_bracket_order(
                         symbol=credentials.instrument,
-                        quantity=1,
+                        quantity=credentials.call_position,
                         price=premium_price['mid'],
                         stoploss=stop_loss,
                         expiry=credentials.date,
@@ -430,7 +431,7 @@ class Strategy:
 
                     k = await self.broker.place_bracket_order(
                         symbol=credentials.instrument,
-                        quantity=1,
+                        quantity=credentials.put_position,
                         price=premium_price['mid'],
                         stoploss=stop_loss,
                         expiry=credentials.date,

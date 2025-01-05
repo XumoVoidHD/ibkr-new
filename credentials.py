@@ -22,3 +22,7 @@ entry_second = 0
 exit_hour = 15
 exit_minute = 45
 exit_second = 0
+call_hedge_quantity = 1
+put_hedge_quantity = 1
+call_position = 1
+put_position = 1
