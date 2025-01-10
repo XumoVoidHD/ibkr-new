@@ -176,7 +176,7 @@ class IBTWSAPI:
         # while util.isNan(market_data.last):
         #     self.ib.sleep(3)
         if market_data.close > 0:
-            return market_data.close
+            return market_data.last
         else:
             print("Market data is not subscribed or unavailable for", symbol)
             return None

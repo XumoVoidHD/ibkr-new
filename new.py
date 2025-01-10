@@ -57,8 +57,8 @@ class Strategy:
         print("\n1. Testing connection...")
         await self.broker.connect()
         print(f"Connection status: {self.broker.is_connected()}")
-        self.closest_put_current_price = self.broker.current_price(credentials.instrument)
-        self.broker.ib.reqMarketDataType(4)
+        self.closest_put_current_price = await self.broker.current_price(credentials.instrument)
+        print(self.closest_put_current_price)
         self.strikes = await self.broker.fetch_strikes(credentials.instrument, "CBOE", secType="IND")
 
         while True:
@@ -223,7 +223,7 @@ class Strategy:
         self.atm_call_fill = k[1]
         self.atm_call_current_premium = k[1]
         self.call_temp_order = k[0]
-        self.atm_call_sl = self.atm_call_fill * (1 - (self.call_percent / 100))
+        self.atm_call_sl = self.atm_call_fill * (1 + (self.call_percent / 100))
 
     async def call_check(self):
         temp_percentage = 0.95
@@ -236,20 +236,20 @@ class Strategy:
                     right="C"
                 )
 
-                if premium_price['mid'] > self.atm_call_current_premium:
+                if premium_price['mid'] < self.atm_call_current_premium:
                     print(
                         f"[CALL] Premium increase detected - Updating stop loss"
                         f"\n→ New Premium: {premium_price['mid']}"
                         f"\n→ Old Premium: {self.atm_call_current_premium}"
                         f"\n→ Old SL: {self.atm_call_sl}"
-                        f"\n→ New SL: {premium_price['mid'] * (1 - (self.call_percent / 100))}"
+                        f"\n→ New SL: {premium_price['mid'] * (1 + (self.call_percent / 100))}"
                         f"\n→ Current Call %: {self.call_percent}%"
                     )
-                    self.atm_call_sl = premium_price['mid'] * (1 - (self.call_percent / 100))
+                    self.atm_call_sl = premium_price['mid'] * (1 + (self.call_percent / 100))
                     self.atm_call_current_premium = premium_price['mid']
                     continue
 
-                if premium_price['mid'] <= self.atm_call_sl:
+                if premium_price['mid'] >= self.atm_call_sl:
                     print(
                         f"[CALL] Stop loss triggered - Executing market buy"
                         f"\n→ Current Premium: {premium_price['mid']}"
@@ -340,7 +340,7 @@ class Strategy:
         self.atm_put_fill = k[1]
         self.atm_put_current_premium = k[1]
         self.put_temp_order = k[0]
-        self.atm_put_sl = self.atm_put_fill * (1 - (self.put_percent / 100))
+        self.atm_put_sl = self.atm_put_fill * (1 + (self.put_percent / 100))
 
     async def put_check(self):
         temp_percentage = 0.95
@@ -353,20 +353,20 @@ class Strategy:
                     right="P"
                 )
 
-                if premium_price['mid'] > self.atm_put_current_premium:
+                if premium_price['mid'] <= self.atm_put_current_premium:
                     print(
                         f"[PUT] Premium increase detected - Updating stop loss"
                         f"\n→ New Premium: {premium_price['mid']}"
                         f"\n→ Old Premium: {self.atm_put_current_premium}"
                         f"\n→ Old SL: {self.atm_put_sl}"
-                        f"\n→ New SL: {premium_price['mid'] * (1 - (self.put_percent / 100))}"
+                        f"\n→ New SL: {premium_price['mid'] * (1 + (self.put_percent / 100))}"
                         f"\n→ Current Put %: {self.put_percent}%"
                     )
-                    self.atm_put_sl = premium_price['mid'] * (1 - (self.put_percent / 100))
+                    self.atm_put_sl = premium_price['mid'] * (1 + (self.put_percent / 100))
                     self.atm_put_current_premium = premium_price['mid']
                     continue
 
-                if premium_price['mid'] <= self.atm_put_sl:
+                if premium_price['mid'] >= self.atm_put_sl:
                     print(
                         f"[PUT] Stop loss triggered - Executing market buy"
                         f"\n→ Current Premium: {premium_price['mid']}"
