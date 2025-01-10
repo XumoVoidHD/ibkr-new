@@ -93,6 +93,7 @@ class Strategy:
                 self.should_continue = False
                 await asyncio.sleep(20)
                 await self.broker.cancel_all()
+                print("Market has closed")
                 break
 
             await asyncio.sleep(10)

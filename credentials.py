@@ -1,6 +1,6 @@
 # Default Values
 port = 7497
-date = "20250106"
+date = "20250110"
 host = "127.0.0.1"
 data_type = 4
 instrument = "SPX"

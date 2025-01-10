@@ -312,6 +312,7 @@ class IBTWSAPI:
         parent_id = self.client.client.getReqId()
 
         en_order = LimitOrder(action="SELL", totalQuantity=quantity, lmtPrice=price)
+        await asyncio.sleep(5)
         en_order.orderId = parent_id
         en_order.transmit = False
 
@@ -464,7 +465,7 @@ class IBTWSAPI:
         """
         self.app = app
 
-    async def get_latest_premium_price(self, symbol, expiry, strike, right, exchange="CBOE"):
+    async def get_latest_premium_price(self, symbol, expiry, strike, right, exchange="CBOE", print_data=False):
 
         option_contract = Option(
             symbol=symbol,
@@ -482,7 +483,8 @@ class IBTWSAPI:
         self.client.reqMarketDataType(4)
         market_data = self.client.reqMktData(option_contract, '', snapshot=True)
         self.ib.sleep(10)
-        print("market data is", market_data)
+        if print_data:
+            print("market data is", market_data)
 
         premium_price = {
             "bid": market_data.bid,
