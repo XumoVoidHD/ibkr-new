@@ -1,6 +1,6 @@
 # Default Values
 port = 7497
-date = "20250110"
+date = "20250121"
 host = "127.0.0.1"
 data_type = 4
 instrument = "SPX"
@@ -14,7 +14,11 @@ OTM_PUT_HEDGE = 10
 ATM_CALL = 2
 ATM_PUT = 2
 call_sl = 15
+call_entry_price_changes_by = 5
+call_change_sl_by = 1
 put_sl = 15
+put_entry_price_changes_by = 5
+put_change_sl_by = 1
 conversion_time = 10
 entry_hour = 9
 entry_minute = 35

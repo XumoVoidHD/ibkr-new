@@ -26,14 +26,10 @@ class Strategy:
         self.put_contract = None
         self.atm_call_current_premium = None
         self.call_contract = None
-        self.closest_call_current_price = None
         self.atm_call_sl = None
         self.put_hedge_open = None
         self.atm_put_fill = None
-        self.atm_put_parendID = None
-        self.atm_call_parendID = None
         self.atm_put_limit_price = None
-        self.closest_put_current_price = None
         self.otm_closest_call = None
         self.otm_closest_put = None
         self.broker = IBTWSAPI(creds=creds)
@@ -53,12 +49,17 @@ class Strategy:
         self.put_order_placed = False
         self.call_hedge_open = False
         self.should_continue = True
-        self.testing = False
+        self.testing = True
+        self.reset = True
 
     async def main(self):
         print("\n1. Testing connection...")
         await self.broker.connect()
         print(f"Connection status: {self.broker.is_connected()}")
+
+        if self.reset:
+            await self.close_all_positions(test=True)
+            return
 
         while True:
             current_time = datetime.now(timezone('US/Eastern'))
@@ -78,18 +79,21 @@ class Strategy:
                 current_price = await self.broker.current_price(credentials.instrument)
                 closest_strike = min(self.strikes, key=lambda x: abs(x - current_price))
 
+                print(f"CURRENT PRICE: {current_price}")
+                print(f"CLOSEST CURRENT PRICE: {closest_strike}")
+
                 self.otm_closest_call = closest_strike + (credentials.OTM_CALL_HEDGE * 5)
                 print(f"CALL HEDGE STRIKE PRICE: {self.otm_closest_call}")
 
                 self.otm_closest_put = closest_strike - (credentials.OTM_PUT_HEDGE * 5)
                 print(f"PUT HEDGE STRIKE PRICE: {self.otm_closest_put}")
 
-                self.call_target_price = self.closest_call_current_price
+                self.call_target_price = closest_strike
                 if credentials.ATM_CALL > 0:
                     self.call_target_price += 5 * credentials.ATM_CALL
                 print(f"CALL POSITION STRIKE PRICE: {self.call_target_price}")
 
-                self.put_target_price = self.closest_put_current_price
+                self.put_target_price = closest_strike
                 if credentials.ATM_CALL > 0:
                     self.put_target_price -= 5 * credentials.ATM_CALL
                 print(f"PUT POSITION STRIKE PRICE: {self.put_target_price}")
@@ -104,11 +108,11 @@ class Strategy:
 
         await asyncio.gather(
             self.call_check(),
-            self.close_all_positions(),
+            self.close_all_positions(test=False),
             self.put_check(),
         )
 
-    async def close_all_positions(self):
+    async def close_all_positions(self, test):
         while True:
             current_time = datetime.now(timezone('US/Eastern'))
             target_time = current_time.replace(
@@ -117,7 +121,7 @@ class Strategy:
                 second=credentials.exit_second,
                 microsecond=0)
 
-            if current_time >= target_time:
+            if current_time >= target_time or test:
                 await self.broker.cancel_all()
                 self.should_continue = False
                 await asyncio.sleep(20)
@@ -230,7 +234,7 @@ class Strategy:
         self.atm_call_sl = self.atm_call_fill * (1 + (self.call_percent / 100))
 
     async def call_check(self):
-        temp_percentage = 0.95
+        temp_percentage = 1 - (credentials.call_entry_price_changes_by/100)
         while self.should_continue:
             if self.call_order_placed:
                 premium_price = await self.broker.get_latest_premium_price(
@@ -264,9 +268,8 @@ class Strategy:
                         f"\n→ Old Temp %: {temp_percentage:.2%}"
                         f"\n→ New Temp %: {(temp_percentage - 0.05):.2%}"
                     )
-                    self.call_percent -= 1
-                    temp_percentage -= 0.05
-                    self.atm_call_sl = self.atm_call_fill * self.call_percent
+                    temp_percentage -= credentials.call_entry_price_changes_by/100
+                    self.atm_call_sl = self.atm_call_sl - self.atm_call_fill * (credentials.call_change_sl_by/100)
                     print(f"New SL: {self.atm_call_sl}")
                     continue
 
@@ -330,7 +333,7 @@ class Strategy:
         self.atm_put_sl = self.atm_put_fill * (1 + (self.put_percent / 100))
 
     async def put_check(self):
-        temp_percentage = 0.95
+        temp_percentage = 1 - (credentials.put_entry_price_changes_by/100)
         while self.should_continue:
             if self.put_order_placed:
                 premium_price = await self.broker.get_latest_premium_price(
@@ -364,9 +367,8 @@ class Strategy:
                         f"\n→ Old Temp %: {temp_percentage:.2%}"
                         f"\n→ New Temp %: {(temp_percentage - 0.05):.2%}"
                     )
-                    self.put_percent -= 1
-                    temp_percentage -= 0.05
-                    self.atm_put_sl = self.atm_put_fill * self.put_percent
+                    temp_percentage -= credentials.put_entry_price_changes_by / 100
+                    self.atm_put_sl = self.atm_put_sl - self.atm_put_fill * (credentials.put_change_sl_by / 100)
                     print(f"New SL: {self.atm_put_sl}")
                     continue
 
