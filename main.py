@@ -21,33 +21,21 @@ class Strategy:
         self.call_target_price = None
         self.put_target_price = None
         self.atm_put_sl = None
-        self.put_temp_order = None
-        self.atm_put_current_premium = None
         self.put_contract = None
-        self.atm_call_current_premium = None
         self.call_contract = None
         self.atm_call_sl = None
-        self.put_hedge_open = None
         self.atm_put_fill = None
-        self.atm_put_limit_price = None
         self.otm_closest_call = None
         self.otm_closest_put = None
         self.broker = IBTWSAPI(creds=creds)
         self.strikes = None
-        self.call_sl = credentials.call_sl
-        self.put_sl = credentials.put_sl
         self.call_percent = credentials.call_sl
         self.put_percent = credentials.put_sl
         self.atm_call_fill = None
-        self.atm_call_limit_price = None
-        self.call_temp_order = None
         self.call_rentry = 0
         self.put_rentry = 0
-        self.rentry_call_limit = credentials.number_of_re_entry
-        self.rentry_put_limit = credentials.number_of_re_entry
         self.call_order_placed = False
         self.put_order_placed = False
-        self.call_hedge_open = False
         self.should_continue = True
         self.testing = True
         self.reset = True
@@ -146,7 +134,6 @@ class Strategy:
                 k = await self.broker.place_market_order(contract=spx_contract_call,
                                                          qty=credentials.call_hedge_quantity, side="BUY")
                 print(k)
-                self.call_hedge_open = True
             except Exception as e:
                 print(f"Error placing call hedge order: {str(e)}")
 
@@ -163,7 +150,6 @@ class Strategy:
             try:
                 await self.broker.place_market_order(contract=spx_contract_put, qty=credentials.put_hedge_quantity,
                                                      side="BUY")
-                self.put_hedge_open = True
             except Exception as e:
                 print(f"Error placing put hedge order: {str(e)}")
 
@@ -226,11 +212,8 @@ class Strategy:
                                                  side="SELL")
 
         self.call_order_placed = True
-        self.atm_call_limit_price = premium_price['mid']
         self.call_contract = spx_contract
         self.atm_call_fill = k[1]
-        self.atm_call_current_premium = k[1]
-        self.call_temp_order = k[0]
         self.atm_call_sl = self.atm_call_fill * (1 + (self.call_percent / 100))
 
     async def call_check(self):
@@ -259,18 +242,17 @@ class Strategy:
                     continue
 
                 if premium_price['mid'] <= temp_percentage * self.atm_call_fill:
+                    temp_percentage -= credentials.call_entry_price_changes_by/100
+                    self.atm_call_sl = self.atm_call_sl(1 - (credentials.call_change_sl_by/100))
                     print(
                         f"[CALL] Price dip detected - Adjusting trailing parameters"
+                        f"\n→ Fill Price: {self.atm_put_fill}"
                         f"\n→ Current Premium: {premium_price['mid']}"
                         f"\n→ Dip Threshold: {temp_percentage * self.atm_call_fill}"
-                        f"\n→ Old Call %: {self.call_percent}%"
-                        f"\n→ New Call %: {self.call_percent - 1}%"
                         f"\n→ Old Temp %: {temp_percentage:.2%}"
-                        f"\n→ New Temp %: {(temp_percentage - 0.05):.2%}"
+                        f"\n→ New Temp %: {(temp_percentage - credentials.call_entry_price_changes_by/100):.2%}"
+                        f"\n→ New SL: {self.atm_call_sl}"
                     )
-                    temp_percentage -= credentials.call_entry_price_changes_by/100
-                    self.atm_call_sl = self.atm_call_sl - self.atm_call_fill * (credentials.call_change_sl_by/100)
-                    print(f"New SL: {self.atm_call_sl}")
                     continue
 
                 await asyncio.sleep(1)
@@ -282,16 +264,14 @@ class Strategy:
                     right="C"
                 )
 
-                if premium_price['mid'] <= self.atm_call_fill:
+                if premium_price['mid'] <= self.atm_call_fill and self.call_rentry < credentials.number_of_re_entry:
                     print(
                         f"[CALL] Entry condition met - Initiating new position"
                         f"\n→ Current Premium: {premium_price['mid']}"
                         f"\n→ Entry Price: {self.atm_call_fill}"
                         f"\n→ Strike Price: {self.call_target_price}"
                         f"\n→ Reentry Count: {self.call_rentry + 1}"
-                        f"\n→ Initial Call %: 15%"
                     )
-                    self.call_percent = 15
                     self.call_rentry += 1
                     await self.place_hedge_orders(call=True, put=False)
                     await self.place_atm_call_order()
@@ -325,11 +305,8 @@ class Strategy:
                                                  side="SELL")
 
         self.put_order_placed = True
-        self.atm_put_limit_price = premium_price['mid']
         self.put_contract = spx_contract
         self.atm_put_fill = k[1]
-        self.atm_put_current_premium = k[1]
-        self.put_temp_order = k[0]
         self.atm_put_sl = self.atm_put_fill * (1 + (self.put_percent / 100))
 
     async def put_check(self):
@@ -360,16 +337,15 @@ class Strategy:
                 if premium_price['mid'] <= temp_percentage * self.atm_put_fill:
                     print(
                         f"[PUT] Price dip detected - Adjusting trailing parameters"
+                        f"\n→ Fill Price: {self.atm_put_fill}"
                         f"\n→ Current Premium: {premium_price['mid']}"
                         f"\n→ Dip Threshold: {temp_percentage * self.atm_put_fill}"
-                        f"\n→ Old Put %: {self.put_percent}%"
-                        f"\n→ New Put %: {self.put_percent - 1}%"
                         f"\n→ Old Temp %: {temp_percentage:.2%}"
-                        f"\n→ New Temp %: {(temp_percentage - 0.05):.2%}"
+                        f"\n→ New Temp %: {(temp_percentage - (credentials.put_entry_price_changes_by/100)):.2%}"
+                        f"\n→ New SL: {self.atm_put_sl}"
                     )
                     temp_percentage -= credentials.put_entry_price_changes_by / 100
-                    self.atm_put_sl = self.atm_put_sl - self.atm_put_fill * (credentials.put_change_sl_by / 100)
-                    print(f"New SL: {self.atm_put_sl}")
+                    self.atm_put_sl = self.atm_put_sl(1 - (credentials.put_change_sl_by / 100))
                     continue
 
                 await asyncio.sleep(1)
@@ -381,16 +357,14 @@ class Strategy:
                     right="P"
                 )
 
-                if premium_price['mid'] <= self.atm_put_fill:
+                if premium_price['mid'] <= self.atm_put_fill and self.put_rentry < credentials.number_of_re_entry:
                     print(
                         f"[PUT] Entry condition met - Initiating new position"
                         f"\n→ Current Premium: {premium_price['mid']}"
                         f"\n→ Entry Price: {self.atm_put_fill}"
                         f"\n→ Strike Price: {self.put_target_price}"
                         f"\n→ Reentry Count: {self.put_rentry + 1}"
-                        f"\n→ Initial Put %: 15%"
                     )
-                    self.put_percent = 15
                     self.put_rentry += 1
                     await self.place_hedge_orders(call=False, put=True)
                     await self.place_atm_put_order()
