@@ -37,8 +37,8 @@ class Strategy:
         self.call_order_placed = False
         self.put_order_placed = False
         self.should_continue = True
-        self.testing = True
-        self.reset = True
+        self.testing = False
+        self.reset = False
 
     async def main(self):
         print("\n1. Testing connection...")
@@ -61,7 +61,7 @@ class Strategy:
                 minute=credentials.exit_minute,
                 second=credentials.exit_second,
                 microsecond=0)
-
+            print(current_time)
             if (start_time <= current_time <= closing_time) or self.testing:
                 self.strikes = await self.broker.fetch_strikes(credentials.instrument, "CBOE", secType="IND")
                 current_price = await self.broker.current_price(credentials.instrument)
@@ -241,18 +241,21 @@ class Strategy:
                     self.call_order_placed = False
                     continue
 
+                if temp_percentage == 0:
+                    print(f"Call trailing sl is at {temp_percentage}")
+
                 if premium_price['mid'] <= temp_percentage * self.atm_call_fill:
-                    temp_percentage -= credentials.call_entry_price_changes_by/100
-                    self.atm_call_sl = self.atm_call_sl(1 - (credentials.call_change_sl_by/100))
+                    self.atm_call_sl = self.atm_call_sl - (self.atm_call_fill * (credentials.call_change_sl_by/100))
                     print(
                         f"[CALL] Price dip detected - Adjusting trailing parameters"
-                        f"\n→ Fill Price: {self.atm_put_fill}"
+                        f"\n→ Fill Price: {self.atm_call_fill}"
                         f"\n→ Current Premium: {premium_price['mid']}"
                         f"\n→ Dip Threshold: {temp_percentage * self.atm_call_fill}"
                         f"\n→ Old Temp %: {temp_percentage:.2%}"
                         f"\n→ New Temp %: {(temp_percentage - credentials.call_entry_price_changes_by/100):.2%}"
                         f"\n→ New SL: {self.atm_call_sl}"
                     )
+                    temp_percentage -= credentials.call_entry_price_changes_by / 100
                     continue
 
                 await asyncio.sleep(1)
@@ -334,7 +337,11 @@ class Strategy:
                     self.put_order_placed = False
                     continue
 
+                if temp_percentage == 0:
+                    print(f"Put trailing sl is at {temp_percentage}")
+
                 if premium_price['mid'] <= temp_percentage * self.atm_put_fill:
+                    self.atm_put_sl = self.atm_put_sl - (self.atm_put_fill * (credentials.put_change_sl_by/100))
                     print(
                         f"[PUT] Price dip detected - Adjusting trailing parameters"
                         f"\n→ Fill Price: {self.atm_put_fill}"
@@ -345,7 +352,6 @@ class Strategy:
                         f"\n→ New SL: {self.atm_put_sl}"
                     )
                     temp_percentage -= credentials.put_entry_price_changes_by / 100
-                    self.atm_put_sl = self.atm_put_sl(1 - (credentials.put_change_sl_by / 100))
                     continue
 
                 await asyncio.sleep(1)
