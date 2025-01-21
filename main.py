@@ -63,7 +63,7 @@ class Strategy:
                 microsecond=0)
             print(current_time)
             if (start_time <= current_time <= closing_time) or self.testing:
-                self.strikes = await self.broker.fetch_strikes(credentials.instrument, "CBOE", secType="IND")
+                self.strikes = await self.broker.fetch_strikes(credentials.instrument, credentials.exchange, secType="IND")
                 current_price = await self.broker.current_price(credentials.instrument)
                 closest_strike = min(self.strikes, key=lambda x: abs(x - current_price))
 
@@ -280,6 +280,10 @@ class Strategy:
                     await self.place_atm_call_order()
                     self.call_order_placed = True
 
+                if not self.call_rentry < credentials.number_of_re_entry:
+                    print("Call re-entry limit reached")
+                    return
+
                 await asyncio.sleep(5)
 
     async def place_atm_put_order(self):
@@ -375,6 +379,10 @@ class Strategy:
                     await self.place_hedge_orders(call=False, put=True)
                     await self.place_atm_put_order()
                     self.put_order_placed = True
+
+                if not self.put_rentry < credentials.number_of_re_entry:
+                    print("Put re-entry limit reached")
+                    return
 
                 await asyncio.sleep(5)
 

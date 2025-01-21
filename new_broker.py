@@ -129,7 +129,7 @@ class IBTWSAPI:
         """
 
         if secType == 'IND':
-            contract = Index(symbol, 'CBOE', "USD")
+            contract = Index(symbol, exchange, credentials.currency)
 
         elif secType == 'STK':
             contract = Stock(symbol, 'SMART', "USD")
