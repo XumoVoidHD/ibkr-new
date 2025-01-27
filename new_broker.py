@@ -480,9 +480,9 @@ class IBTWSAPI:
 
         self.client.qualifyContracts(option_contract)
 
-        self.client.reqMarketDataType(4)
+        self.client.reqMarketDataType(1)
         market_data = self.client.reqMktData(option_contract, '', snapshot=True)
-        self.ib.sleep(10)
+        self.ib.sleep(1)
         if print_data:
             print("market data is", market_data)
 
