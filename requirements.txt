@@ -1,5 +1,5 @@
-asyncio
+asyncio~=3.4.3
 ib_insync
 nest_asyncio
-pytz
-pandas
+pytz~=2024.1
+pandas~=1.5.3

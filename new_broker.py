@@ -45,10 +45,6 @@ class IBTWSAPI:
         self.client.connect(host=host, port=port, clientId=13, timeout=60)
         print("Connected")
 
-    # except Exception as e:
-    # 	print(e)
-    # 	return False
-
     def is_connected(self) -> bool:
         """
         Get the connection status\n
@@ -82,14 +78,12 @@ class IBTWSAPI:
         """
         Returns info of the contract\n
         """
-        # Creating contract
         c = self._create_contract(contract=contract, symbol=symbol, exchange=exchange)
         if contract in ["options"]:
             c.strike = ""
             c.lastTradeDateOrContractMonth = ""
 
         contract_info = self.client.reqContractDetails(contract=c)
-        # print(contract_info)
 
         return {
             "contract_obj": contract_info[0].contract,
@@ -150,24 +144,20 @@ class IBTWSAPI:
         buy_order = MarketOrder(side, qty)
         buy_trade = self.client.placeOrder(contract, buy_order)
         print("waiting for order to be placed")
-        n = 0
-        while True:  # Wait for up to 10 seconds
-            # Wait for 1 second before checking the order status
+        n = 1
+        while True:
             if buy_trade.isDone():
-                # Order was filled
                 print("Order placed successfully")
                 fill_price = buy_trade.orderStatus.avgFillPrice
                 print("Fill price:", fill_price)
                 return buy_trade, fill_price
             else:
-                print(f"Waiting...{contract.right}... {n + 1} seconds")
+                print(f"Waiting...{contract.right}... {n} seconds")
+                n += 1
                 await asyncio.sleep(1)
 
     async def current_price(self, symbol, exchange='CBOE'):
         spx_contract = Index(symbol, exchange)
-        #spx_contract=self.client.qualifyContracts(spx_contract)[0]
-        #print("qualified contract",spx_contract)
-        #self.client.reqMarketDataType(4)
 
         market_data = self.client.reqMktData(spx_contract)
         self.ib.sleep(7)
@@ -391,13 +381,6 @@ class IBTWSAPI:
         else:
             print("Give Stoploss as one of the parameters")
 
-    # self.client.sleep(1)
-    # if targetprofit:
-    # 	targetprofit_order_info = self.client.placeOrder(contract=c, order=tp_order)
-
-    # async def modify_order(self, order_id:int, params = {}) -> None:
-    # 	self.client.
-
     async def cancel_order(self, order_id: int) -> None:
         """
         Cancel open order\n
@@ -406,6 +389,10 @@ class IBTWSAPI:
         for order in orders:
             if order.orderStatus.orderId == order_id:
                 self.client.cancelOrder(order=order.orderStatus)
+
+    async def check_positions(self):
+        x = await self.get_positions()
+        return x
 
     async def cancel_all(self):
         orders = await self.get_open_orders()
