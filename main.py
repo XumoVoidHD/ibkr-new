@@ -40,7 +40,6 @@ creds = {
 class Strategy:
 
     def __init__(self):
-        self.logger = setup_logging()
         self.call_target_price = None
         self.put_target_price = None
         self.atm_put_sl = None
@@ -63,10 +62,13 @@ class Strategy:
         self.testing = False
         self.reset = False
         self.func_test = False
+        self.enable_logging = True
+        self.logger = setup_logging() if self.enable_logging else None
 
     async def dprint(self, phrase):
         print(phrase)
-        self.logger.info(phrase)
+        if self.enable_logging:
+            self.logger.info(phrase)
         await send_discord_message(phrase)
 
     async def main(self):
