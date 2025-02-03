@@ -1,8 +1,9 @@
 import aiohttp
 import asyncio
+import credentials
 
 # Replace this with your webhook URL
-WEBHOOK_URL = "https://discord.com/api/webhooks/1335254176690602064/Re9xYddwThA3evUD0YNCft_jO6S2q5UYY1o1aGoxgPjYNeGKkp_WUyWSavbQCnrQlSta"
+WEBHOOK_URL = credentials.WEBHOOK_URL
 
 
 async def send_discord_message(content: str) -> bool:
@@ -19,7 +20,6 @@ async def send_discord_message(content: str) -> bool:
         async with aiohttp.ClientSession() as session:
             async with session.post(WEBHOOK_URL, json={"content": content}) as response:
                 if response.status == 204:
-                    print(f"Message sent successfully: {content}")
                     return True
                 else:
                     print(f"Failed to send message. Status code: {response.status}")

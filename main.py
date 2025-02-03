@@ -62,7 +62,7 @@ class Strategy:
         self.testing = False
         self.reset = False
         self.func_test = False
-        self.enable_logging = True
+        self.enable_logging = False
         self.logger = setup_logging() if self.enable_logging else None
 
     async def dprint(self, phrase):
@@ -105,7 +105,7 @@ class Strategy:
                 current_price = await self.broker.current_price(credentials.instrument)
                 closest_strike = min(self.strikes, key=lambda x: abs(x - current_price))
 
-                await send_discord_message("."*100)
+                await send_discord_message("." * 100)
                 await self.dprint("\n\nNew Trading Session Start\n")
                 await self.dprint(f"CURRENT PRICE: {current_price}")
 
@@ -275,10 +275,10 @@ class Strategy:
                 if premium_price['mid'] >= self.atm_call_sl:
                     await self.dprint(
                         f"[CALL] Stop loss triggered - Executing market buy"
-                        f"\n Current Premium: {premium_price['mid']}"
-                        f"\n Stop Loss Level: {self.atm_call_sl}"
-                        f"\n Strike Price: {self.call_target_price}"
-                        f"\n Position Size: {credentials.call_position}"
+                        f"\nCurrent Premium: {premium_price['mid']}"
+                        f"\nStop Loss Level: {self.atm_call_sl}"
+                        f"\nStrike Price: {self.call_target_price}"
+                        f"\nPosition Size: {credentials.call_position}"
                     )
                     await self.broker.place_market_order(contract=self.call_contract, qty=credentials.call_position,
                                                          side="BUY")
@@ -286,22 +286,24 @@ class Strategy:
                     self.call_order_placed = False
                     continue
 
-                if temp_percentage <= 0:
-                    await self.dprint(f"Call trailing sl is at {temp_percentage}")
-                    continue
-
                 if premium_price['mid'] <= temp_percentage * self.atm_call_fill:
                     self.atm_call_sl = self.atm_call_sl - (self.atm_call_fill * (credentials.call_change_sl_by / 100))
                     await self.dprint(
                         f"[CALL] Price dip detected - Adjusting trailing parameters"
-                        f"\n Fill Price: {self.atm_call_fill}"
-                        f"\n Current Premium: {premium_price['mid']}"
-                        f"\n Dip Threshold: {temp_percentage * self.atm_call_fill}"
-                        f"\n Old Temp %: {temp_percentage:.2%}"
-                        f"\n New Temp %: {(temp_percentage - credentials.call_entry_price_changes_by / 100):.2%}"
-                        f"\n New SL: {self.atm_call_sl}"
+                        f"\nFill Price: {self.atm_call_fill}"
+                        f"\nCurrent Premium: {premium_price['mid']}"
+                        f"\nDip Threshold: {temp_percentage * self.atm_call_fill}"
+                        f"\nOld Temp %: {temp_percentage:.2%}"
+                        f"\nNew Temp %: {(temp_percentage - credentials.call_entry_price_changes_by / 100):.2%}"
+                        f"\nNew SL: {self.atm_call_sl}"
                     )
                     temp_percentage -= credentials.call_entry_price_changes_by / 100
+                    if temp_percentage < 0:
+                        temp_percentage = 0
+                    continue
+
+                if temp_percentage <= 0:
+                    await self.dprint(f"Put trailing sl is at {temp_percentage}")
                     continue
 
                 await asyncio.sleep(1)
@@ -316,14 +318,15 @@ class Strategy:
                 if premium_price['mid'] <= self.atm_call_fill and self.call_rentry < credentials.number_of_re_entry:
                     await self.dprint(
                         f"[CALL] Entry condition met - Initiating new position"
-                        f"\n Current Premium: {premium_price['mid']}"
-                        f"\n Entry Price: {self.atm_call_fill}"
-                        f"\n Strike Price: {self.call_target_price}"
-                        f"\n Reentry Count: {self.call_rentry + 1}"
+                        f"\nCurrent Premium: {premium_price['mid']}"
+                        f"\nEntry Price: {self.atm_call_fill}"
+                        f"\nStrike Price: {self.call_target_price}"
+                        f"\nReentry Count: {self.call_rentry + 1}"
                     )
                     self.call_rentry += 1
                     await self.place_hedge_orders(call=True, put=False)
                     await self.place_atm_call_order()
+                    temp_percentage = 1 - (credentials.put_entry_price_changes_by / 100)
                     self.call_order_placed = True
                     continue
 
@@ -380,10 +383,10 @@ class Strategy:
                 if premium_price['mid'] >= self.atm_put_sl:
                     await self.dprint(
                         f"[PUT] Stop loss triggered - Executing market buy"
-                        f"\n Current Premium: {premium_price['mid']}"
-                        f"\n Stop Loss Level: {self.atm_put_sl}"
-                        f"\n Strike Price: {self.put_target_price}"
-                        f"\n Position Size: {credentials.put_position}"
+                        f"\nCurrent Premium: {premium_price['mid']}"
+                        f"\nStop Loss Level: {self.atm_put_sl}"
+                        f"\nStrike Price: {self.put_target_price}"
+                        f"\nPosition Size: {credentials.put_position}"
                     )
                     await self.broker.place_market_order(contract=self.put_contract, qty=credentials.put_position,
                                                          side="BUY")
@@ -391,22 +394,24 @@ class Strategy:
                     self.put_order_placed = False
                     continue
 
-                if temp_percentage <= 0:
-                    await self.dprint(f"Put trailing sl is at {temp_percentage}")
-                    continue
-
                 if premium_price['mid'] <= temp_percentage * self.atm_put_fill:
                     self.atm_put_sl = self.atm_put_sl - (self.atm_put_fill * (credentials.put_change_sl_by / 100))
                     await self.dprint(
                         f"[PUT] Price dip detected - Adjusting trailing parameters"
                         f"\nFill Price: {self.atm_put_fill}"
-                        f"\n Current Premium: {premium_price['mid']}"
-                        f"\n Dip Threshold: {temp_percentage * self.atm_put_fill}"
-                        f"\n Old Temp %: {temp_percentage:.2%}"
-                        f"\n New Temp %: {(temp_percentage - (credentials.put_entry_price_changes_by / 100)):.2%}"
-                        f"\n New SL: {self.atm_put_sl}"
+                        f"\nCurrent Premium: {premium_price['mid']}"
+                        f"\nDip Threshold: {temp_percentage * self.atm_put_fill}"
+                        f"\nOld Temp %: {temp_percentage:.2%}"
+                        f"\nNew Temp %: {(temp_percentage - (credentials.put_entry_price_changes_by / 100)):.2%}"
+                        f"\nNew SL: {self.atm_put_sl}"
                     )
                     temp_percentage -= credentials.put_entry_price_changes_by / 100
+                    if temp_percentage < 0:
+                        temp_percentage = 0
+                    continue
+
+                if temp_percentage <= 0:
+                    await self.dprint(f"Put trailing sl is at {temp_percentage}")
                     continue
 
                 await asyncio.sleep(1)
@@ -421,14 +426,15 @@ class Strategy:
                 if premium_price['mid'] <= self.atm_put_fill and self.put_rentry < credentials.number_of_re_entry:
                     await self.dprint(
                         f"[PUT] Entry condition met - Initiating new position"
-                        f"\n Current Premium: {premium_price['mid']}"
-                        f"\n Entry Price: {self.atm_put_fill}"
-                        f"\n Strike Price: {self.put_target_price}"
-                        f"\n Reentry Count: {self.put_rentry + 1}"
+                        f"\nCurrent Premium: {premium_price['mid']}"
+                        f"\nEntry Price: {self.atm_put_fill}"
+                        f"\nStrike Price: {self.put_target_price}"
+                        f"\nReentry Count: {self.put_rentry + 1}"
                     )
                     self.put_rentry += 1
                     await self.place_hedge_orders(call=False, put=True)
                     await self.place_atm_put_order()
+                    temp_percentage = 1 - (credentials.put_entry_price_changes_by / 100)
                     self.put_order_placed = True
                     continue
 
