@@ -126,7 +126,7 @@ class IBTWSAPI:
             contract = Index(symbol, exchange, credentials.currency)
 
         elif secType == 'STK':
-            contract = Stock(symbol, 'SMART', "USD")
+            contract = Stock(symbol, exchange, "USD")
         else:
             raise ValueError(f"Unsupported secType: {secType}. Use 'IND' or 'STK'.")
 
@@ -135,7 +135,7 @@ class IBTWSAPI:
         self.client.reqMarketDataType(4)
 
         chains = self.client.reqSecDefOptParams(contract.symbol, '', contract.secType, contract.conId)
-        chain = next(c for c in chains if c.tradingClass == symbol and c.exchange == exchange)
+        chain = next(c for c in chains if c.tradingClass == symbol and c.exchange == "CBOE")
         strikes = chain.strikes
 
         return strikes
@@ -160,7 +160,7 @@ class IBTWSAPI:
         spx_contract = Index(symbol, exchange)
 
         market_data = self.client.reqMktData(spx_contract)
-        self.ib.sleep(7)
+        self.ib.sleep(2)
 
         # print(market_data)
         # while util.isNan(market_data.last):
@@ -408,7 +408,7 @@ class IBTWSAPI:
                 lastTradeDateOrContractMonth=position.contract.lastTradeDateOrContractMonth,
                 strike=position.contract.strike,
                 right=position.contract.right,
-                exchange=credentials.exchange,
+                exchange="CBOE",
                 currency="USD",
                 multiplier='100',
             )

@@ -102,31 +102,37 @@ class Strategy:
             if (start_time <= current_time <= closing_time) or self.testing:
                 self.strikes = await self.broker.fetch_strikes(credentials.instrument, credentials.exchange,
                                                                secType="IND")
-                current_price = await self.broker.current_price(credentials.instrument)
+                current_price = await self.broker.current_price(credentials.instrument, credentials.exchange)
+                current_price = round(current_price / 10) * 10
+
+                if credentials.instrument == "NDX":
+                    if str(current_price).endswith("75"):
+                        current_price = (current_price // 10) * 10 + 70
+                    elif str(current_price).endswith("25"):
+                        current_price = (current_price // 10) * 10 + 20
+
                 closest_strike = min(self.strikes, key=lambda x: abs(x - current_price))
 
-                await send_discord_message("." * 100)
                 await self.dprint("\n\nNew Trading Session Start\n")
                 await self.dprint(f"CURRENT PRICE: {current_price}")
 
                 await self.dprint(f"CLOSEST CURRENT PRICE: {closest_strike}")
 
-                self.otm_closest_call = closest_strike + (credentials.OTM_CALL_HEDGE * 5)
+                self.otm_closest_call = closest_strike + (credentials.OTM_CALL_HEDGE * 10)
                 await self.dprint(f"CALL HEDGE STRIKE PRICE: {self.otm_closest_call}")
 
-                self.otm_closest_put = closest_strike - (credentials.OTM_PUT_HEDGE * 5)
+                self.otm_closest_put = closest_strike - (credentials.OTM_PUT_HEDGE * 10)
                 await self.dprint(f"PUT HEDGE STRIKE PRICE: {self.otm_closest_put}")
 
                 self.call_target_price = closest_strike
                 if credentials.ATM_CALL > 0:
-                    self.call_target_price += 5 * credentials.ATM_CALL
+                    self.call_target_price += 10 * credentials.ATM_CALL
                 await self.dprint(f"CALL POSITION STRIKE PRICE: {self.call_target_price}")
 
                 self.put_target_price = closest_strike
                 if credentials.ATM_CALL > 0:
-                    self.put_target_price -= 5 * credentials.ATM_CALL
+                    self.put_target_price -= 10 * credentials.ATM_CALL
                 await self.dprint(f"PUT POSITION STRIKE PRICE: {self.put_target_price}")
-                await send_discord_message("." * 100)
                 await self.place_hedge_orders(call=True, put=True)
                 await self.place_atm_put_order()
                 await self.place_atm_call_order()
@@ -165,7 +171,7 @@ class Strategy:
                 lastTradeDateOrContractMonth=credentials.date,
                 strike=self.otm_closest_call,
                 right='C',
-                exchange=credentials.exchange,
+                exchange="CBOE",
                 currency="USD",
                 multiplier='100'
             )
@@ -182,7 +188,7 @@ class Strategy:
                 lastTradeDateOrContractMonth=credentials.date,
                 strike=self.otm_closest_put,
                 right='P',
-                exchange=credentials.exchange,
+                exchange="CBOE",
                 currency="USD",
                 multiplier='100'
             )
@@ -200,7 +206,7 @@ class Strategy:
                 lastTradeDateOrContractMonth=credentials.date,
                 strike=self.otm_closest_call,
                 right='C',
-                exchange=credentials.exchange,
+                exchange="CBOE",
                 currency="USD",
                 multiplier='100'
             )
@@ -217,7 +223,7 @@ class Strategy:
                 lastTradeDateOrContractMonth=credentials.date,
                 strike=self.otm_closest_put,
                 right='P',
-                exchange=credentials.exchange,
+                exchange="CBOE",
                 currency="USD",
                 multiplier='100'
             )
@@ -240,7 +246,7 @@ class Strategy:
             lastTradeDateOrContractMonth=credentials.date,
             strike=self.call_target_price,
             right='C',
-            exchange=credentials.exchange,
+            exchange="CBOE",
             currency="USD",
             multiplier='100'
         )
@@ -300,10 +306,10 @@ class Strategy:
                     temp_percentage -= credentials.call_entry_price_changes_by / 100
                     if temp_percentage < 0:
                         temp_percentage = 0
+                        await self.dprint(f"Put trailing sl is at {temp_percentage}")
                     continue
 
                 if temp_percentage <= 0:
-                    await self.dprint(f"Put trailing sl is at {temp_percentage}")
                     continue
 
                 await asyncio.sleep(1)
@@ -348,7 +354,7 @@ class Strategy:
             lastTradeDateOrContractMonth=credentials.date,
             strike=self.put_target_price,
             right='P',
-            exchange=credentials.exchange,
+            exchange="CBOE",
             currency="USD",
             multiplier='100'
         )
@@ -408,10 +414,10 @@ class Strategy:
                     temp_percentage -= credentials.put_entry_price_changes_by / 100
                     if temp_percentage < 0:
                         temp_percentage = 0
+                        await self.dprint(f"Put trailing sl is at {temp_percentage}")
                     continue
 
                 if temp_percentage <= 0:
-                    await self.dprint(f"Put trailing sl is at {temp_percentage}")
                     continue
 
                 await asyncio.sleep(1)

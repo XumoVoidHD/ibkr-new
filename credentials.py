@@ -2,18 +2,18 @@
 port = 7497
 host = "127.0.0.1"
 data_type = 4
-instrument = "SPX"
-exchange = "CBOE"
+instrument = "NDX"
+exchange = "NASDAQ"
 currency = "USD"
 WEBHOOK_URL = "https://discord.com/api/webhooks/1335254176690602064/Re9xYddwThA3evUD0YNCft_jO6S2q5UYY1o1aGoxgPjYNeGKkp_WUyWSavbQCnrQlSta"
 
 # Changeable Values
-date = "20250203"                   # Date of contract (YYYY-MM-DD)
+date = "20250204"                   # Date of contract (YYYY-MM-DD)
 number_of_re_entry = 1              # Specifies the number of re-entries allowed
-OTM_CALL_HEDGE = 11                # How far away the call hedge is (10 means that its $50 away from current price)
-OTM_PUT_HEDGE = 11                 # How far away the put hedge is (10 means that its $50 away from current price)
-ATM_CALL = 3                        # How far away call position is (2 means that its $10 away from current price)
-ATM_PUT = 3                         # How far away put position is (2 means that its $10 away from current price)
+OTM_CALL_HEDGE = 5                # How far away the call hedge is (10 means that its $50 away from current price)
+OTM_PUT_HEDGE = 5                 # How far away the put hedge is (10 means that its $50 away from current price)
+ATM_CALL = 1                        # How far away call position is (2 means that its $10 away from current price)
+ATM_PUT = 1                         # How far away put position is (2 means that its $10 away from current price)
 call_sl = 30                        # From where the call stop loss should start from (15 here means 15% of entry price)
 call_entry_price_changes_by = 15     # What % should call entry premium price should change by to update the trailing %
 call_change_sl_by = 5               # What % of entry price should call sl change when trailing stop loss updates
@@ -27,7 +27,7 @@ entry_second = 55                    # Entry time in seconds
 exit_hour = 15                      # Exit time in hours
 exit_minute = 45                    # Exit time in minutes
 exit_second = 55                     # Exit time in seconds
-call_hedge_quantity = 5             # Quantity for call hedge
-put_hedge_quantity = 5              # Quantity for put hedge
-call_position = 5                   # Quantity for call position
-put_position = 5                    # Quantity for put position
+call_hedge_quantity = 1             # Quantity for call hedge
+put_hedge_quantity = 1              # Quantity for put hedge
+call_position = 1                   # Quantity for call position
+put_position = 1                    # Quantity for put position
