@@ -8,7 +8,7 @@ currency = "USD"
 WEBHOOK_URL = "https://discord.com/api/webhooks/1335254176690602064/Re9xYddwThA3evUD0YNCft_jO6S2q5UYY1o1aGoxgPjYNeGKkp_WUyWSavbQCnrQlSta"
 
 # Changeable Values
-date = "20250204"                   # Date of contract (YYYY-MM-DD)
+date = "20250210"                   # Date of contract (YYYY-MM-DD)
 number_of_re_entry = 1              # Specifies the number of re-entries allowed
 OTM_CALL_HEDGE = 5                # How far away the call hedge is (10 means that its $50 away from current price)
 OTM_PUT_HEDGE = 5                 # How far away the put hedge is (10 means that its $50 away from current price)

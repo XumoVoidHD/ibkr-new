@@ -42,7 +42,7 @@ class IBTWSAPI:
         host, port = credentials.host, credentials.port
         self.client = IB()
         self.ib = self.client
-        self.client.connect(host=host, port=port, clientId=13, timeout=60)
+        self.client.connect(host=host, port=port, clientId=self.CREDS["client_id"], timeout=60)
         print("Connected")
 
     def is_connected(self) -> bool:

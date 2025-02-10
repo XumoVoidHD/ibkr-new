@@ -33,7 +33,7 @@ nest_asyncio.apply()
 creds = {
     "host": credentials.host,
     "port": credentials.port,
-    "client_id": 12
+    "client_id": 13
 }
 
 
@@ -59,7 +59,7 @@ class Strategy:
         self.call_order_placed = False
         self.put_order_placed = False
         self.should_continue = True
-        self.testing = False
+        self.testing = True
         self.reset = False
         self.func_test = False
         self.enable_logging = False
