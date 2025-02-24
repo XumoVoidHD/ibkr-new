@@ -1,0 +1,35 @@
+2025-02-03 00:48:45,952 - INFO: 
+1. Testing connection...
+2025-02-03 00:48:46,875 - INFO: Connecting to 127.0.0.1:7497 with clientId 13...
+2025-02-03 00:48:46,877 - INFO: Connected
+2025-02-03 00:48:46,884 - INFO: Logged on to server version 176
+2025-02-03 00:48:46,888 - INFO: Warning 2104, reqId -1: Market data farm connection is OK:usfarm.nj
+2025-02-03 00:48:46,888 - INFO: Warning 2104, reqId -1: Market data farm connection is OK:hfarm
+2025-02-03 00:48:46,889 - INFO: Warning 2104, reqId -1: Market data farm connection is OK:usfuture
+2025-02-03 00:48:46,889 - INFO: Warning 2104, reqId -1: Market data farm connection is OK:cashfarm
+2025-02-03 00:48:46,889 - INFO: Warning 2104, reqId -1: Market data farm connection is OK:usopt
+2025-02-03 00:48:46,889 - INFO: Warning 2104, reqId -1: Market data farm connection is OK:usfarm
+2025-02-03 00:48:46,889 - INFO: Warning 2106, reqId -1: HMDS data farm connection is OK:apachmds
+2025-02-03 00:48:46,890 - INFO: Warning 2106, reqId -1: HMDS data farm connection is OK:ushmds
+2025-02-03 00:48:46,890 - INFO: Warning 2158, reqId -1: Sec-def data farm connection is OK:secdefhk
+2025-02-03 00:48:46,890 - INFO: API connection ready
+2025-02-03 00:48:47,003 - INFO: Synchronization complete
+2025-02-03 00:48:47,003 - INFO: Connection status: True
+2025-02-03 00:48:47,692 - INFO: Current Time: 2025-02-02 14:18:47.692826-05:00
+2025-02-03 00:48:49,538 - ERROR: Error 354, reqId 29: Requested market data is not subscribed. To subscribe to market data please select the Account menu then under Management choose Market Data Subscription Manager.SPX S&P 500 Stock Index/TOP/ALL, contract: Index(symbol='SPX', exchange='CBOE')
+2025-02-03 00:48:49,895 - INFO: Warning 10167, reqId 29: Requested market data is not subscribed. Displaying delayed market data., contract: Index(symbol='SPX', exchange='CBOE')
+2025-02-03 00:48:57,116 - INFO: 
+
+New Trading Session Start
+
+2025-02-03 00:48:59,129 - INFO: CURRENT PRICE: 6040.07
+2025-02-03 00:49:00,185 - INFO: CLOSEST CURRENT PRICE: 6040.0
+2025-02-03 00:49:00,858 - INFO: CALL HEDGE STRIKE PRICE: 6095.0
+2025-02-03 00:49:01,516 - INFO: PUT HEDGE STRIKE PRICE: 5985.0
+2025-02-03 00:49:02,438 - INFO: CALL POSITION STRIKE PRICE: 6055.0
+2025-02-03 00:49:03,257 - INFO: PUT POSITION STRIKE PRICE: 6025.0
+2025-02-03 00:49:04,080 - INFO: placeOrder: New order Trade(contract=Option(symbol='SPX', lastTradeDateOrContractMonth='20250131', strike=6095.0, right='C', multiplier='100', exchange='CBOE', currency='USD'), order=MarketOrder(orderId=30, clientId=13, action='BUY', totalQuantity=5), orderStatus=OrderStatus(orderId=30, status='PendingSubmit', filled=0.0, remaining=0.0, avgFillPrice=0.0, permId=0, parentId=0, lastFillPrice=0.0, clientId=0, whyHeld='', mktCapPrice=0.0), fills=[], log=[TradeLogEntry(time=datetime.datetime(2025, 2, 2, 19, 19, 4, 79005, tzinfo=datetime.timezone.utc), status='PendingSubmit', message='', errorCode=0)], advancedError='')
+2025-02-03 00:49:04,588 - INFO: orderStatus: Trade(contract=Option(symbol='SPX', lastTradeDateOrContractMonth='20250131', strike=6095.0, right='C', multiplier='100', exchange='CBOE', currency='USD'), order=MarketOrder(orderId=30, clientId=13, permId=1522516596, action='BUY', totalQuantity=5.0, lmtPrice=0.05, auxPrice=0.0), orderStatus=OrderStatus(orderId=30, status='Inactive', filled=0.0, remaining=5.0, avgFillPrice=0.0, permId=1522516596, parentId=0, lastFillPrice=0.0, clientId=13, whyHeld='', mktCapPrice=0.0), fills=[], log=[TradeLogEntry(time=datetime.datetime(2025, 2, 2, 19, 19, 4, 79005, tzinfo=datetime.timezone.utc), status='PendingSubmit', message='', errorCode=0), TradeLogEntry(time=datetime.datetime(2025, 2, 2, 19, 19, 4, 588752, tzinfo=datetime.timezone.utc), status='Inactive', message='', errorCode=0)], advancedError='')
+2025-02-03 00:49:04,621 - ERROR: Error 201, reqId 30: Order rejected - reason:TimeToCancel
+2025-02-03 00:49:04,622 - WARNING: Canceled order: Trade(contract=Option(symbol='SPX', lastTradeDateOrContractMonth='20250131', strike=6095.0, right='C', multiplier='100', exchange='CBOE', currency='USD'), order=MarketOrder(orderId=30, clientId=13, permId=1522516596, action='BUY', totalQuantity=5.0, lmtPrice=0.05, auxPrice=0.0), orderStatus=OrderStatus(orderId=30, status='Cancelled', filled=0.0, remaining=5.0, avgFillPrice=0.0, permId=1522516596, parentId=0, lastFillPrice=0.0, clientId=13, whyHeld='', mktCapPrice=0.0), fills=[], log=[TradeLogEntry(time=datetime.datetime(2025, 2, 2, 19, 19, 4, 79005, tzinfo=datetime.timezone.utc), status='PendingSubmit', message='', errorCode=0), TradeLogEntry(time=datetime.datetime(2025, 2, 2, 19, 19, 4, 588752, tzinfo=datetime.timezone.utc), status='Inactive', message='', errorCode=0), TradeLogEntry(time=datetime.datetime(2025, 2, 2, 19, 19, 4, 621684, tzinfo=datetime.timezone.utc), status='Cancelled', message='Error 201, reqId 30: Order rejected - reason:TimeToCancel', errorCode=201)], advancedError='')
+2025-02-03 00:49:04,622 - INFO: orderStatus: Trade(contract=Option(symbol='SPX', lastTradeDateOrContractMonth='20250131', strike=6095.0, right='C', multiplier='100', exchange='CBOE', currency='USD'), order=MarketOrder(orderId=30, clientId=13, permId=1522516596, action='BUY', totalQuantity=5.0, lmtPrice=0.05, auxPrice=0.0), orderStatus=OrderStatus(orderId=30, status='Inactive', filled=0.0, remaining=5.0, avgFillPrice=0.0, permId=1522516596, parentId=0, lastFillPrice=0.0, clientId=13, whyHeld='', mktCapPrice=0.0), fills=[], log=[TradeLogEntry(time=datetime.datetime(2025, 2, 2, 19, 19, 4, 79005, tzinfo=datetime.timezone.utc), status='PendingSubmit', message='', errorCode=0), TradeLogEntry(time=datetime.datetime(2025, 2, 2, 19, 19, 4, 588752, tzinfo=datetime.timezone.utc), status='Inactive', message='', errorCode=0), TradeLogEntry(time=datetime.datetime(2025, 2, 2, 19, 19, 4, 621684, tzinfo=datetime.timezone.utc), status='Cancelled', message='Error 201, reqId 30: Order rejected - reason:TimeToCancel', errorCode=201), TradeLogEntry(time=datetime.datetime(2025, 2, 2, 19, 19, 4, 622683, tzinfo=datetime.timezone.utc), status='Inactive', message='', errorCode=0)], advancedError='')

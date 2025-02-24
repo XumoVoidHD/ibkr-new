@@ -2,13 +2,15 @@
 port = 7497
 host = "127.0.0.1"
 data_type = 4
-instrument = "NDX"
-exchange = "NASDAQ"
+instrument = "SPX"
+exchange = "CBOE"
 currency = "USD"
-WEBHOOK_URL = "https://discord.com/api/webhooks/1335254176690602064/Re9xYddwThA3evUD0YNCft_jO6S2q5UYY1o1aGoxgPjYNeGKkp_WUyWSavbQCnrQlSta"
+close_positions = True
+enable_logging = False
+WEBHOOK_URL = "https://discord.com/api/webhooks/1338550862922125382/ngLa-LmVaolmdMDeNV4f4jTEhzhCJwvZXsSrpHiYcZmWIhYEQ9ef4elRQB0Kf1PmYG5B"
 
 # Changeable Values
-date = "20250210"                   # Date of contract (YYYY-MM-DD)
+date = "20250224"                   # Date of contract (YYYY-MM-DD)
 number_of_re_entry = 1              # Specifies the number of re-entries allowed
 OTM_CALL_HEDGE = 5                # How far away the call hedge is (10 means that its $50 away from current price)
 OTM_PUT_HEDGE = 5                 # How far away the put hedge is (10 means that its $50 away from current price)
@@ -24,9 +26,9 @@ conversion_time = 10                # Deprecated (No use)
 entry_hour = 9                      # Entry time in hours
 entry_minute = 46                   # Entry time in minutes
 entry_second = 55                    # Entry time in seconds
-exit_hour = 15                      # Exit time in hours
-exit_minute = 45                    # Exit time in minutes
-exit_second = 55                     # Exit time in seconds
+exit_hour = 13                     # Exit time in hours
+exit_minute = 25                    # Exit time in minutes
+exit_second = 00                     # Exit time in seconds
 call_hedge_quantity = 1             # Quantity for call hedge
 put_hedge_quantity = 1              # Quantity for put hedge
 call_position = 1                   # Quantity for call position
