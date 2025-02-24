@@ -13,7 +13,6 @@ import logging
 def setup_logging():
     os.makedirs('logs', exist_ok=True)
 
-    # Get the current date in US/Eastern timezone
     eastern = timezone('US/Eastern')
     current_date = datetime.now(eastern).strftime('%Y-%m-%d')
 
@@ -33,7 +32,7 @@ nest_asyncio.apply()
 creds = {
     "host": credentials.host,
     "port": credentials.port,
-    "client_id": 13
+    "client_id": 14
 }
 
 
@@ -59,10 +58,10 @@ class Strategy:
         self.call_order_placed = False
         self.put_order_placed = False
         self.should_continue = True
-        self.testing = True
+        self.testing = False
         self.reset = False
         self.func_test = False
-        self.enable_logging = False
+        self.enable_logging = credentials.enable_logging
         self.logger = setup_logging() if self.enable_logging else None
 
     async def dprint(self, phrase):
@@ -105,12 +104,6 @@ class Strategy:
                 current_price = await self.broker.current_price(credentials.instrument, credentials.exchange)
                 current_price = round(current_price / 10) * 10
 
-                if credentials.instrument == "NDX":
-                    if str(current_price).endswith("75"):
-                        current_price = (current_price // 10) * 10 + 70
-                    elif str(current_price).endswith("25"):
-                        current_price = (current_price // 10) * 10 + 20
-
                 closest_strike = min(self.strikes, key=lambda x: abs(x - current_price))
 
                 await self.dprint("\n\nNew Trading Session Start\n")
@@ -118,20 +111,20 @@ class Strategy:
 
                 await self.dprint(f"CLOSEST CURRENT PRICE: {closest_strike}")
 
-                self.otm_closest_call = closest_strike + (credentials.OTM_CALL_HEDGE * 10)
+                self.otm_closest_call = closest_strike + (credentials.OTM_CALL_HEDGE * 5)
                 await self.dprint(f"CALL HEDGE STRIKE PRICE: {self.otm_closest_call}")
 
-                self.otm_closest_put = closest_strike - (credentials.OTM_PUT_HEDGE * 10)
+                self.otm_closest_put = closest_strike - (credentials.OTM_PUT_HEDGE * 5)
                 await self.dprint(f"PUT HEDGE STRIKE PRICE: {self.otm_closest_put}")
 
                 self.call_target_price = closest_strike
                 if credentials.ATM_CALL > 0:
-                    self.call_target_price += 10 * credentials.ATM_CALL
+                    self.call_target_price += 5 * credentials.ATM_CALL
                 await self.dprint(f"CALL POSITION STRIKE PRICE: {self.call_target_price}")
 
                 self.put_target_price = closest_strike
                 if credentials.ATM_CALL > 0:
-                    self.put_target_price -= 10 * credentials.ATM_CALL
+                    self.put_target_price -= 5 * credentials.ATM_CALL
                 await self.dprint(f"PUT POSITION STRIKE PRICE: {self.put_target_price}")
                 await self.place_hedge_orders(call=True, put=True)
                 await self.place_atm_put_order()
@@ -148,21 +141,24 @@ class Strategy:
         )
 
     async def close_all_positions(self, test):
-        while True:
-            current_time = datetime.now(timezone('US/Eastern'))
-            target_time = current_time.replace(
-                hour=credentials.exit_hour,
-                minute=credentials.exit_minute,
-                second=credentials.exit_second,
-                microsecond=0)
+        if credentials.close_positions:
+            return 
+        else:
+            while True:
+                current_time = datetime.now(timezone('US/Eastern'))
+                target_time = current_time.replace(
+                    hour=credentials.exit_hour,
+                    minute=credentials.exit_minute,
+                    second=credentials.exit_second,
+                    microsecond=0)
 
-            if current_time >= target_time or test:
-                self.should_continue = False
-                await self.broker.cancel_all()
-                await self.dprint("Closing all positions")
-                break
+                if current_time >= target_time or test:
+                    self.should_continue = False
+                    await self.broker.cancel_all()
+                    await self.dprint("Closing all positions")
+                    break
 
-            await asyncio.sleep(10)
+                await asyncio.sleep(10)
 
     async def place_hedge_orders(self, call, put):
         if call:

@@ -162,9 +162,9 @@ class IBTWSAPI:
         market_data = self.client.reqMktData(spx_contract)
         self.ib.sleep(2)
 
-        # print(market_data)
-        # while util.isNan(market_data.last):
-        #     self.ib.sleep(3)
+        print(market_data)
+        while util.isNan(market_data.last):
+            self.ib.sleep(3)
         if market_data.close > 0:
             return market_data.last
         else:
@@ -412,7 +412,10 @@ class IBTWSAPI:
                 currency="USD",
                 multiplier='100',
             )
-            await self.place_market_order(contract=contract, qty=quantity, side=action)
+            buy_order = MarketOrder(action, quantity)
+            buy_trade = self.client.placeOrder(contract, buy_order)
+            self.client.sleep(1)
+            # await self.place_market_order(contract=contract, qty=quantity, side=action)
             print(f"Closing position: {action} {quantity} {position.contract.localSymbol} at market")
 
     async def query_order(self, order_id: int) -> dict:
@@ -467,7 +470,7 @@ class IBTWSAPI:
 
         self.client.qualifyContracts(option_contract)
 
-        self.client.reqMarketDataType(1)
+        self.client.reqMarketDataType(3)
         market_data = self.client.reqMktData(option_contract, '', snapshot=True)
         self.ib.sleep(1)
         if print_data:
